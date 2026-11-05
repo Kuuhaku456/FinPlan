@@ -1,0 +1,7 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/finplan_logo.png"
+  adaptive_icon_background: "#064E3B"
+  adaptive_icon_foreground: "assets/icons/finplan_logo.png"
+  min_sdk_android: 21
