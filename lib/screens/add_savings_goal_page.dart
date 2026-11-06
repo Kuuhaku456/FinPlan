@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/money.dart';
 import '../models/savings_goal.dart';
 import '../state/savings_controller.dart';
+import '../state/savings_notifier.dart';
 
-// =====================================================
-// WARNA FINPLAN
-// =====================================================
+// ==========================================
+// FINPLAN COLORS
+// ==========================================
 
-const Color _darkGreen = Color(0xFF064E3B);
-const Color _green = Color(0xFF059669);
-const Color _mint = Color(0xFFA7F3D0);
+const _darkGreen = Color(0xFF064E3B);
+const _green = Color(0xFF059669);
+const _mint = Color(0xFFA7F3D0);
 
-// =====================================================
-// PILIHAN EMOJI
-// =====================================================
+// ==========================================
+// EMOJI OPTIONS
+// ==========================================
 
-const List<String> _goalEmojis = [
+const _goalEmojis = [
   '🎯',
   '💍',
   '🏠',
@@ -40,67 +42,11 @@ const List<String> _goalEmojis = [
   '💰',
 ];
 
-// =====================================================
-// FORMAT INPUT RUPIAH
-// =====================================================
+// ==========================================
+// DATE FORMAT
+// ==========================================
 
-class _SavingsRupiahFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(
-      RegExp(r'[^0-9]'),
-      '',
-    );
-
-    if (digits.isEmpty) {
-      return const TextEditingValue(
-        text: '',
-        selection: TextSelection.collapsed(offset: 0),
-      );
-    }
-
-    final formatted = _formatDigits(digits);
-
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(
-        offset: formatted.length,
-      ),
-    );
-  }
-}
-
-String _formatDigits(String digits) {
-  final clean = digits.replaceAll(
-    RegExp(r'[^0-9]'),
-    '',
-  );
-
-  if (clean.isEmpty) return '';
-
-  final buffer = StringBuffer();
-
-  for (var i = 0; i < clean.length; i++) {
-    buffer.write(clean[i]);
-
-    final remaining = clean.length - i - 1;
-
-    if (remaining > 0 && remaining % 3 == 0) {
-      buffer.write('.');
-    }
-  }
-
-  return buffer.toString();
-}
-
-// =====================================================
-// FORMAT TANGGAL
-// =====================================================
-
-const List<String> _months = [
+const _months = [
   'Januari',
   'Februari',
   'Maret',
@@ -121,33 +67,88 @@ String _formatDate(DateTime date) {
       '${date.year}';
 }
 
-// =====================================================
-// ADD / EDIT SAVINGS GOAL PAGE
-// =====================================================
+// ==========================================
+// RUPIAH FORMATTER
+// ==========================================
 
-class AddSavingsGoalPage extends StatefulWidget {
+String _formatDigits(String input) {
+  final digits = input.replaceAll(
+    RegExp(r'[^0-9]'),
+    '',
+  );
+
+  if (digits.isEmpty) return '';
+
+  final result = StringBuffer();
+
+  for (var i = 0; i < digits.length; i++) {
+    result.write(digits[i]);
+
+    final remaining = digits.length - i - 1;
+
+    if (remaining > 0 && remaining % 3 == 0) {
+      result.write('.');
+    }
+  }
+
+  return result.toString();
+}
+
+class _SavingsRupiahFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = _formatDigits(
+      newValue.text,
+    );
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(
+        offset: formatted.length,
+      ),
+    );
+  }
+}
+
+// ==========================================
+// ADD / EDIT SAVINGS GOAL PAGE
+// ==========================================
+
+class AddSavingsGoalPage
+    extends ConsumerStatefulWidget {
   const AddSavingsGoalPage({
     super.key,
     required this.controller,
     this.goalId,
   });
 
+  // Dipertahankan agar main.dart
+  // tetap kompatibel selama migrasi.
   final SavingsController controller;
+
   final String? goalId;
 
   @override
-  State<AddSavingsGoalPage> createState() {
+  ConsumerState<AddSavingsGoalPage> createState() {
     return _AddSavingsGoalPageState();
   }
 }
 
 class _AddSavingsGoalPageState
-    extends State<AddSavingsGoalPage> {
+    extends ConsumerState<AddSavingsGoalPage> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _targetController = TextEditingController();
+
+  final _descriptionController =
+      TextEditingController();
+
+  final _targetController =
+      TextEditingController();
+
   final _initialAmountController =
       TextEditingController();
 
@@ -165,18 +166,18 @@ class _AddSavingsGoalPageState
 
   bool get _isEditing => widget.goalId != null;
 
-  // ===================================================
-  // INITIAL STATE
-  // ===================================================
+  // ========================================
+  // INITIALIZATION
+  // ========================================
 
   @override
   void initState() {
     super.initState();
 
     if (_isEditing) {
-      final existing = widget.controller.goalById(
-        widget.goalId!,
-      );
+      final existing = ref
+          .read(savingsStateProvider.notifier)
+          .goalById(widget.goalId!);
 
       if (existing != null) {
         _populateForm(existing);
@@ -185,70 +186,13 @@ class _AddSavingsGoalPageState
 
         WidgetsBinding.instance.addPostFrameCallback(
           (_) {
-            if (!mounted) return;
-
-            _loadExistingGoal();
+            if (mounted) {
+              _loadExistingGoal();
+            }
           },
         );
       }
     }
-  }
-
-  // ===================================================
-  // LOAD DATA SAAT EDIT
-  // ===================================================
-
-  Future<void> _loadExistingGoal() async {
-    try {
-      await widget.controller.loadGoals();
-
-      if (!mounted) return;
-
-      final goal = widget.controller.goalById(
-        widget.goalId!,
-      );
-
-      if (goal == null) {
-        setState(() {
-          _isLoadingExisting = false;
-          _loadError = widget.controller.error ??
-              'Kantong tidak ditemukan.';
-        });
-
-        return;
-      }
-
-      setState(() {
-        _populateForm(goal);
-        _isLoadingExisting = false;
-        _loadError = null;
-      });
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoadingExisting = false;
-        _loadError = 'Gagal memuat kantong.';
-      });
-    }
-  }
-
-  // ===================================================
-  // ISI FORM EDIT
-  // ===================================================
-
-  void _populateForm(SavingsGoal goal) {
-    _existingGoal = goal;
-
-    _nameController.text = goal.name;
-    _descriptionController.text = goal.description;
-
-    _targetController.text = _formatDigits(
-      goal.targetAmount.toString(),
-    );
-
-    _selectedEmoji = goal.emoji;
-    _deadline = goal.deadline;
   }
 
   @override
@@ -261,9 +205,71 @@ class _AddSavingsGoalPageState
     super.dispose();
   }
 
-  // ===================================================
+  // ========================================
+  // POPULATE FORM FOR EDIT
+  // ========================================
+
+  void _populateForm(SavingsGoal goal) {
+    _existingGoal = goal;
+
+    _nameController.text = goal.name;
+
+    _descriptionController.text =
+        goal.description;
+
+    _targetController.text = _formatDigits(
+      goal.targetAmount.toString(),
+    );
+
+    _selectedEmoji = goal.emoji;
+    _deadline = goal.deadline;
+  }
+
+  // ========================================
+  // LOAD EXISTING GOAL
+  // ========================================
+
+  Future<void> _loadExistingGoal() async {
+    if (!_isEditing) return;
+
+    try {
+      final notifier = ref.read(
+        savingsStateProvider.notifier,
+      );
+
+      await notifier.loadGoals();
+
+      if (!mounted) return;
+
+      final goal = notifier.goalById(
+        widget.goalId!,
+      );
+
+      setState(() {
+        _isLoadingExisting = false;
+
+        if (goal == null) {
+          _loadError =
+              ref.read(savingsStateProvider).error ??
+                  'Kantong tidak ditemukan.';
+        } else {
+          _populateForm(goal);
+          _loadError = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingExisting = false;
+        _loadError = 'Gagal memuat kantong.';
+      });
+    }
+  }
+
+  // ========================================
   // DATE PICKER
-  // ===================================================
+  // ========================================
 
   Future<void> _pickDeadline() async {
     final now = DateTime.now();
@@ -294,16 +300,16 @@ class _AddSavingsGoalPageState
       helpText: 'Pilih Tanggal Target',
     );
 
-    if (picked == null || !mounted) return;
-
-    setState(() {
-      _deadline = picked;
-    });
+    if (picked != null && mounted) {
+      setState(() {
+        _deadline = picked;
+      });
+    }
   }
 
-  // ===================================================
-  // VALIDASI
-  // ===================================================
+  // ========================================
+  // VALIDATION
+  // ========================================
 
   String? _validateName(String? value) {
     final name = value?.trim() ?? '';
@@ -329,12 +335,13 @@ class _AddSavingsGoalPageState
     return null;
   }
 
-  // ===================================================
-  // SIMPAN KANTONG
-  // ===================================================
+  // ========================================
+  // SAVE GOAL USING RIVERPOD
+  // ========================================
 
   Future<void> _saveGoal() async {
-    if (_isSaving || widget.controller.isSaving) {
+    if (_isSaving ||
+        ref.read(savingsStateProvider).isSaving) {
       return;
     }
 
@@ -363,12 +370,16 @@ class _AddSavingsGoalPageState
     });
 
     try {
-      if (_isEditing) {
-        // =========================================
-        // MODE EDIT
-        // =========================================
+      final notifier = ref.read(
+        savingsStateProvider.notifier,
+      );
 
-        final existing = widget.controller.goalById(
+      if (_isEditing) {
+        // =================================
+        // EDIT EXISTING GOAL
+        // =================================
+
+        final existing = notifier.goalById(
               widget.goalId!,
             ) ??
             _existingGoal;
@@ -387,13 +398,14 @@ class _AddSavingsGoalPageState
           deadline: _deadline,
         );
 
-        await widget.controller.editGoal(
+        // Saldo dan riwayat lama tetap ada.
+        await notifier.updateGoal(
           updatedGoal,
         );
       } else {
-        // =========================================
-        // MODE TAMBAH
-        // =========================================
+        // =================================
+        // CREATE NEW GOAL
+        // =================================
 
         final newGoal = SavingsGoal.create(
           name: name,
@@ -404,7 +416,7 @@ class _AddSavingsGoalPageState
           deadline: _deadline,
         );
 
-        await widget.controller.createGoal(
+        await notifier.createGoal(
           newGoal,
         );
       }
@@ -427,9 +439,9 @@ class _AddSavingsGoalPageState
     }
   }
 
-  // ===================================================
+  // ========================================
   // SECTION CARD
-  // ===================================================
+  // ========================================
 
   Widget _sectionCard({
     required String title,
@@ -482,14 +494,15 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // PREVIEW KANTONG
-  // ===================================================
+  // ========================================
+  // LIVE PREVIEW
+  // ========================================
 
   Widget _previewCard() {
-    final name = _nameController.text.trim().isEmpty
-        ? 'Kantong Impian'
-        : _nameController.text.trim();
+    final name =
+        _nameController.text.trim().isEmpty
+            ? 'Kantong Impian'
+            : _nameController.text.trim();
 
     final target = parseRupiah(
       _targetController.text,
@@ -658,9 +671,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // INFORMASI KANTONG
-  // ===================================================
+  // ========================================
+  // BASIC INFORMATION
+  // ========================================
 
   Widget _basicInformation() {
     return _sectionCard(
@@ -706,9 +719,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // PILIH EMOJI
-  // ===================================================
+  // ========================================
+  // EMOJI SELECTOR
+  // ========================================
 
   Widget _emojiSelector() {
     final scheme = Theme.of(context).colorScheme;
@@ -761,9 +774,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // TARGET TABUNGAN
-  // ===================================================
+  // ========================================
+  // TARGET SECTION
+  // ========================================
 
   Widget _targetSection() {
     const presets = [
@@ -773,7 +786,7 @@ class _AddSavingsGoalPageState
       10000000,
     ];
 
-    final currentTarget = parseRupiah(
+    final selectedTarget = parseRupiah(
       _targetController.text,
     );
 
@@ -811,15 +824,12 @@ class _AddSavingsGoalPageState
           spacing: 8,
           runSpacing: 8,
           children: presets.map((value) {
-            final selected = currentTarget == value;
+            final selected =
+                selectedTarget == value;
 
-            String label;
-
-            if (value >= 1000000) {
-              label = '${value ~/ 1000000}jt';
-            } else {
-              label = '${value ~/ 1000}rb';
-            }
+            final label = value >= 1000000
+                ? '${value ~/ 1000000}jt'
+                : '${value ~/ 1000}rb';
 
             return ChoiceChip(
               label: Text(label),
@@ -828,7 +838,8 @@ class _AddSavingsGoalPageState
               selectedColor: _mint,
               onSelected: (_) {
                 setState(() {
-                  _targetController.text = _formatDigits(
+                  _targetController.text =
+                      _formatDigits(
                     value.toString(),
                   );
                 });
@@ -840,9 +851,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // SALDO AWAL
-  // ===================================================
+  // ========================================
+  // INITIAL AMOUNT
+  // ========================================
 
   Widget _initialAmountSection() {
     return _sectionCard(
@@ -873,9 +884,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // DEADLINE
-  // ===================================================
+  // ========================================
+  // DEADLINE SECTION
+  // ========================================
 
   Widget _deadlineSection() {
     final scheme = Theme.of(context).colorScheme;
@@ -954,9 +965,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // INFO MODE EDIT
-  // ===================================================
+  // ========================================
+  // EDIT INFORMATION
+  // ========================================
 
   Widget _editInfo() {
     final scheme = Theme.of(context).colorScheme;
@@ -992,9 +1003,9 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
+  // ========================================
   // LOAD ERROR
-  // ===================================================
+  // ========================================
 
   Widget _buildLoadError() {
     final scheme = Theme.of(context).colorScheme;
@@ -1043,11 +1054,11 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // TOMBOL SIMPAN
-  // ===================================================
+  // ========================================
+  // SAVE BUTTON
+  // ========================================
 
-  Widget _saveButton() {
+  Widget _saveButton(bool isSaving) {
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(
@@ -1059,10 +1070,9 @@ class _AddSavingsGoalPageState
       child: SizedBox(
         height: 55,
         child: FilledButton.icon(
-          onPressed:
-              _isSaving || widget.controller.isSaving
-                  ? null
-                  : _saveGoal,
+          onPressed: _isSaving || isSaving
+              ? null
+              : _saveGoal,
           style: FilledButton.styleFrom(
             backgroundColor: _green,
             foregroundColor: Colors.white,
@@ -1096,16 +1106,24 @@ class _AddSavingsGoalPageState
     );
   }
 
-  // ===================================================
-  // BUILD
-  // ===================================================
+  // ========================================
+  // BUILD - RIVERPOD
+  // ========================================
 
   @override
   Widget build(BuildContext context) {
+    // Hanya pantau status penyimpanan.
+    final isSaving = ref.watch(
+      savingsStateProvider.select(
+        (state) => state.isSaving,
+      ),
+    );
+
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: scheme.surface,
+
       appBar: AppBar(
         title: Text(
           _isEditing
@@ -1116,10 +1134,12 @@ class _AddSavingsGoalPageState
           ),
         ),
       ),
+
       bottomNavigationBar:
           _isLoadingExisting || _loadError != null
               ? null
-              : _saveButton(),
+              : _saveButton(isSaving),
+
       body: _isLoadingExisting
           ? const Center(
               child: CircularProgressIndicator(),
@@ -1143,10 +1163,7 @@ class _AddSavingsGoalPageState
                             30,
                           ),
                           children: [
-                            // =========================
                             // HEADER
-                            // =========================
-
                             Text(
                               _isEditing
                                   ? 'Edit Target 🎯'
@@ -1162,36 +1179,25 @@ class _AddSavingsGoalPageState
 
                             const SizedBox(height: 17),
 
-                            // =========================
                             // LIVE PREVIEW
-                            // =========================
-
                             _previewCard(),
 
                             const SizedBox(height: 24),
 
-                            // =========================
-                            // INFORMASI
-                            // =========================
-
+                            // BASIC INFORMATION
                             _basicInformation(),
 
                             const SizedBox(height: 17),
 
-                            // =========================
                             // EMOJI
-                            // =========================
-
                             _emojiSelector(),
 
                             const SizedBox(height: 17),
 
-                            // =========================
                             // TARGET
-                            // =========================
-
                             _targetSection(),
 
+                            // INITIAL BALANCE
                             if (!_isEditing) ...[
                               const SizedBox(height: 17),
                               _initialAmountSection(),
@@ -1199,17 +1205,16 @@ class _AddSavingsGoalPageState
 
                             const SizedBox(height: 17),
 
-                            // =========================
                             // DEADLINE
-                            // =========================
-
                             _deadlineSection(),
 
+                            // EDIT INFORMATION
                             if (_isEditing) ...[
                               const SizedBox(height: 16),
                               _editInfo(),
                             ],
 
+                            // ERROR
                             if (_saveError != null) ...[
                               const SizedBox(height: 17),
 

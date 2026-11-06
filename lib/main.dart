@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/money.dart';
@@ -26,20 +27,23 @@ import 'screens/sisa_uang_page.dart';
 import 'screens/transactions_page.dart';
 import 'screens/welcome_slides_page.dart';
 
+import 'state/app_settings_controller.dart';
+import 'state/finance_plan_notifier.dart';
 import 'state/job_offer_controller.dart';
 import 'state/plan_controller.dart';
 import 'state/savings_controller.dart';
+import 'state/savings_notifier.dart';
 import 'state/transaction_controller.dart';
+import 'state/transaction_notifier.dart';
 
 import 'widgets/plan_editor.dart';
 import 'widgets/salary_calculator.dart';
 
 // =====================================================
-// KONFIGURASI APLIKASI
+// FINPLAN CONFIGURATION
 // =====================================================
 
 const String kIntroSeenKey = 'finplan.intro_seen.v1';
-const String kFontScaleKey = 'finplan.font_scale.v1';
 
 // =====================================================
 // MAIN
@@ -50,40 +54,63 @@ Future<void> main() async {
 
   final preferences = SharedPreferencesAsync();
 
+  // ===================================================
+  // INITIALIZE PLAN REPOSITORY
+  // ===================================================
+
   final planRepository = PlanRepository();
+
   final savedPlan = await planRepository.loadPlan();
+
+  // ===================================================
+  // LOAD THEME PREFERENCE
+  // ===================================================
 
   ThemeMode themePreference = ThemeMode.system;
 
   try {
     final savedTheme = await planRepository.loadThemePreference();
+
     themePreference = switch (savedTheme) {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system,
     };
   } catch (_) {
-    // Default mengikuti mode HP jika pengaturan belum dapat dibaca.
+    themePreference = ThemeMode.system;
   }
+
+  // ===================================================
+  // LOAD INTRO PREFERENCE
+  // ===================================================
 
   bool introSeen = false;
 
   try {
-    introSeen =
-        await preferences.getBool(kIntroSeenKey) ?? false;
+    introSeen = await preferences.getBool(kIntroSeenKey) ?? false;
   } catch (_) {
-    // Welcome slides tetap bisa ditampilkan.
+    introSeen = false;
   }
 
+  // ===================================================
+  // LOAD FONT SCALE
+  // ===================================================
+
   double fontScale = 1.0;
+
   try {
     final savedScale = await preferences.getDouble(kFontScaleKey);
+
     if (savedScale != null && savedScale.isFinite) {
       fontScale = savedScale.clamp(1.0, 1.5).toDouble();
     }
   } catch (_) {
-    // Bila preferensi belum terbaca, gunakan ukuran teks standar.
+    fontScale = 1.0;
   }
+
+  // ===================================================
+  // INITIALIZE LEGACY CONTROLLERS
+  // ===================================================
 
   final planController = PlanController(
     planRepository,
@@ -107,15 +134,53 @@ Future<void> main() async {
     ),
   );
 
+  // ===================================================
+  // INITIALIZE RIVERPOD
+  // ===================================================
+
   runApp(
-    FinPlanApp(
-      planController: planController,
-      transactionController: transactionController,
-      savingsController: savingsController,
-      jobOfferController: jobOfferController,
-      preferences: preferences,
-      introSeen: introSeen,
-      initialFontScale: fontScale,
+    ProviderScope(
+      overrides: [
+        // App Settings
+        initialAppSettingsProvider.overrideWithValue(
+          AppSettingsState(
+            themeMode: themePreference,
+            fontScale: fontScale,
+          ),
+        ),
+
+        // Settings bridge
+        settingsPlanControllerProvider.overrideWithValue(
+          planController,
+        ),
+
+        settingsPreferencesProvider.overrideWithValue(
+          preferences,
+        ),
+
+        // Financial Planner bridge
+        legacyPlanControllerProvider.overrideWithValue(
+          planController,
+        ),
+
+        // Transactions bridge
+        legacyTransactionControllerProvider.overrideWithValue(
+          transactionController,
+        ),
+
+        // Savings bridge
+        legacySavingsControllerProvider.overrideWithValue(
+          savingsController,
+        ),
+      ],
+      child: FinPlanApp(
+        planController: planController,
+        transactionController: transactionController,
+        savingsController: savingsController,
+        jobOfferController: jobOfferController,
+        preferences: preferences,
+        introSeen: introSeen,
+      ),
     ),
   );
 }
@@ -124,7 +189,7 @@ Future<void> main() async {
 // FINPLAN APP
 // =====================================================
 
-class FinPlanApp extends StatefulWidget {
+class FinPlanApp extends ConsumerStatefulWidget {
   const FinPlanApp({
     super.key,
     required this.planController,
@@ -133,7 +198,6 @@ class FinPlanApp extends StatefulWidget {
     required this.jobOfferController,
     required this.preferences,
     required this.introSeen,
-    required this.initialFontScale,
   });
 
   final PlanController planController;
@@ -143,31 +207,17 @@ class FinPlanApp extends StatefulWidget {
 
   final SharedPreferencesAsync preferences;
   final bool introSeen;
-  final double initialFontScale;
 
   @override
-  State<FinPlanApp> createState() => _FinPlanAppState();
+  ConsumerState<FinPlanApp> createState() => _FinPlanAppState();
 }
 
-class _FinPlanAppState extends State<FinPlanApp> {
+class _FinPlanAppState extends ConsumerState<FinPlanApp> {
   late bool _introSeen = widget.introSeen;
-  late double _fontScale = widget.initialFontScale;
 
-  void _setFontScale(double value) {
-    final next = value.clamp(1.0, 1.5).toDouble();
-    if (_fontScale == next) return;
-
-    setState(() => _fontScale = next);
-    unawaited(_saveFontScale(next));
-  }
-
-  Future<void> _saveFontScale(double value) async {
-    try {
-      await widget.preferences.setDouble(kFontScaleKey, value);
-    } catch (_) {
-      // Ukuran teks masih berubah selama sesi aktif.
-    }
-  }
+  // ===================================================
+  // FINISH INTRO
+  // ===================================================
 
   Future<void> _finishIntro() async {
     if (!_introSeen && mounted) {
@@ -182,13 +232,13 @@ class _FinPlanAppState extends State<FinPlanApp> {
         true,
       );
     } catch (_) {
-      // Gagal menyimpan tidak mengunci welcome slides.
+      // Intro tetap bisa dilewati.
     }
   }
 
-  // =====================================================
-  // THEME FINPLAN
-  // =====================================================
+  // ===================================================
+  // FINPLAN THEME
+  // ===================================================
 
   ThemeData _theme(Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
@@ -200,17 +250,14 @@ class _FinPlanAppState extends State<FinPlanApp> {
 
     return ThemeData(
       useMaterial3: true,
-
       colorScheme: scheme,
 
-      scaffoldBackgroundColor: isDark
-          ? scheme.surface
-          : const Color(0xFFF5FAF7),
+      scaffoldBackgroundColor:
+          isDark ? scheme.surface : const Color(0xFFF5FAF7),
 
       appBarTheme: AppBarTheme(
-        backgroundColor: isDark
-            ? scheme.surface
-            : const Color(0xFFF5FAF7),
+        backgroundColor:
+            isDark ? scheme.surface : const Color(0xFFF5FAF7),
         foregroundColor: scheme.onSurface,
         elevation: 0,
         centerTitle: false,
@@ -218,16 +265,13 @@ class _FinPlanAppState extends State<FinPlanApp> {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-
         fillColor: isDark
             ? scheme.surfaceContainerHigh
             : Colors.white,
-
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
-
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 15,
@@ -236,11 +280,9 @@ class _FinPlanAppState extends State<FinPlanApp> {
 
       cardTheme: CardThemeData(
         elevation: 0,
-
         color: isDark
             ? scheme.surfaceContainerLow
             : Colors.white,
-
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(22),
         ),
@@ -249,7 +291,6 @@ class _FinPlanAppState extends State<FinPlanApp> {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(50),
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -258,21 +299,21 @@ class _FinPlanAppState extends State<FinPlanApp> {
     );
   }
 
-  // =====================================================
+  // ===================================================
   // INITIAL SCREEN
-  // =====================================================
+  // ===================================================
 
-  Widget _home() {
+  Widget _home(FinancePlan? currentPlan) {
+    final settings = ref.read(appSettingsProvider);
+
     if (!_introSeen) {
       return WelcomeSlidesPage(
         onContinue: () => unawaited(_finishIntro()),
       );
     }
 
-    if (widget.planController.plan == null) {
-      return OnboardingPage(
-        controller: widget.planController,
-      );
+    if (currentPlan == null) {
+      return const OnboardingPage();
     }
 
     return FinanceShell(
@@ -281,54 +322,64 @@ class _FinPlanAppState extends State<FinPlanApp> {
       savingsController: widget.savingsController,
       jobOfferController: widget.jobOfferController,
       preferences: widget.preferences,
-      fontScale: _fontScale,
-      onFontScaleChanged: _setFontScale,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.planController,
-
-      builder: (context, _) {
-        return MaterialApp(
-          title: 'FinPlan',
-
-          debugShowCheckedModeBanner: false,
-
-          theme: _theme(Brightness.light),
-          darkTheme: _theme(Brightness.dark),
-
-          // ThemeMode.system membaca mode perangkat sejak aplikasi dibuka
-          // dan mengikuti perubahan light/dark pada pengaturan HP.
-          themeMode: widget.planController.themeMode,
-
-          builder: (context, child) {
-            final media = MediaQuery.of(context);
-            final deviceScale = media.textScaler.scale(16) / 16;
-            final effectiveScale =
-                (deviceScale * _fontScale).clamp(1.0, 2.0).toDouble();
-
-            return MediaQuery(
-              data: media.copyWith(
-                textScaler: TextScaler.linear(effectiveScale),
-              ),
-              child: child ?? const SizedBox.shrink(),
-            );
-          },
-
-          home: _home(),
-        );
+      fontScale: settings.fontScale,
+      onFontScaleChanged: (value) {
+        ref.read(appSettingsProvider.notifier).setFontScale(value);
       },
     );
   }
 
+  // ===================================================
+  // BUILD APP
+  // ===================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(appSettingsProvider);
+
+    return MaterialApp(
+      title: 'FinPlan',
+      debugShowCheckedModeBanner: false,
+
+      theme: _theme(Brightness.light),
+      darkTheme: _theme(Brightness.dark),
+      themeMode: settings.themeMode,
+
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+
+        final deviceScale = media.textScaler.scale(16) / 16;
+
+        final effectiveScale =
+            (deviceScale * settings.fontScale)
+                .clamp(1.0, 2.0)
+                .toDouble();
+
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(effectiveScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+
+      home: Consumer(
+        builder: (context, ref, _) {
+          final plan = ref.watch(financePlanProvider);
+
+          return _home(plan);
+        },
+      ),
+    );
+  }
+
+  // ===================================================
+  // DISPOSE
+  // ===================================================
+
   @override
   void dispose() {
-    unawaited(
-      widget.transactionController.closeDatabase(),
-    );
+    unawaited(widget.transactionController.closeDatabase());
 
     widget.jobOfferController.dispose();
     widget.savingsController.dispose();
@@ -343,46 +394,45 @@ class _FinPlanAppState extends State<FinPlanApp> {
 // ONBOARDING PAGE
 // =====================================================
 
-class OnboardingPage extends StatelessWidget {
-  const OnboardingPage({
-    super.key,
-    required this.controller,
-  });
-
-  final PlanController controller;
+class OnboardingPage extends ConsumerWidget {
+  const OnboardingPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(appSettingsProvider).themeMode;
+
+    final isDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) ==
+                Brightness.dark);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mulai dengan FinPlan'),
-
         actions: [
           IconButton(
-            tooltip: controller.darkMode
+            tooltip: isDark
                 ? 'Aktifkan light mode'
                 : 'Aktifkan dark mode',
-
             onPressed: () async {
               try {
-                await controller.changeDarkMode(
-                  !controller.darkMode,
-                );
+                await ref
+                    .read(appSettingsProvider.notifier)
+                    .toggleTheme(
+                      Theme.of(context).brightness,
+                    );
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Gagal mengubah tampilan.',
-                      ),
+                      content: Text('Gagal mengubah tampilan.'),
                     ),
                   );
                 }
               }
             },
-
             icon: Icon(
-              controller.darkMode
+              isDark
                   ? Icons.light_mode_outlined
                   : Icons.dark_mode_outlined,
             ),
@@ -394,7 +444,7 @@ class OnboardingPage extends StatelessWidget {
         child: PlanEditor(
           initial: FinancePlan.defaults(),
           onboarding: true,
-          onSave: controller.savePlan,
+          onSave: ref.read(financePlanProvider.notifier).savePlan,
         ),
       ),
     );
@@ -405,7 +455,7 @@ class OnboardingPage extends StatelessWidget {
 // FINANCE SHELL
 // =====================================================
 
-class FinanceShell extends StatefulWidget {
+class FinanceShell extends ConsumerStatefulWidget {
   const FinanceShell({
     super.key,
     required this.planController,
@@ -421,15 +471,19 @@ class FinanceShell extends StatefulWidget {
   final TransactionController transactionController;
   final SavingsController savingsController;
   final JobOfferController jobOfferController;
+
   final SharedPreferencesAsync preferences;
+
   final double fontScale;
+
   final ValueChanged<double> onFontScaleChanged;
 
   @override
-  State<FinanceShell> createState() => _FinanceShellState();
+  ConsumerState<FinanceShell> createState() =>
+      _FinanceShellState();
 }
 
-class _FinanceShellState extends State<FinanceShell> {
+class _FinanceShellState extends ConsumerState<FinanceShell> {
   int _selectedIndex = 0;
 
   bool _changingTheme = false;
@@ -440,9 +494,9 @@ class _FinanceShellState extends State<FinanceShell> {
     widget.preferences,
   );
 
-  // =====================================================
+  // ===================================================
   // INITIALIZATION
-  // =====================================================
+  // ===================================================
 
   @override
   void initState() {
@@ -456,19 +510,32 @@ class _FinanceShellState extends State<FinanceShell> {
     });
   }
 
+  // ===================================================
+  // INITIALIZE FEATURE DATA
+  // ===================================================
+
   Future<void> _loadExtras() async {
+    // Mengaktifkan sinkronisasi transaksi melalui Riverpod.
+    ref.read(transactionStateProvider);
+
+    // Memuat kantong tabungan melalui Riverpod.
     try {
-      await widget.savingsController.loadGoals();
+      await ref.read(savingsStateProvider.notifier).loadGoals();
     } catch (_) {
-      // Tabungan tetap bisa ditampilkan.
+      // Aplikasi tetap berjalan jika tabungan gagal dimuat.
     }
 
+    // Memuat tawaran pekerjaan.
     try {
       await widget.jobOfferController.initialize();
     } catch (_) {
-      // Planner tetap bisa digunakan.
+      // Planner tetap dapat dibuka.
     }
   }
+
+  // ===================================================
+  // PROFILE
+  // ===================================================
 
   Future<void> _loadProfile() async {
     final profile = await _profileStore.load();
@@ -480,30 +547,31 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
-  // =====================================================
-  // DARK MODE / LIGHT MODE
-  // =====================================================
+  // ===================================================
+  // CHANGE THEME
+  // ===================================================
 
   Future<void> _toggleTheme() async {
     if (_changingTheme) return;
 
-    final isCurrentlyDark = Theme.of(context).brightness == Brightness.dark;
+    final isCurrentlyDark =
+        Theme.of(context).brightness == Brightness.dark;
 
     setState(() {
       _changingTheme = true;
     });
 
     try {
-      await widget.planController.changeDarkMode(
-        !isCurrentlyDark,
-      );
+      await ref.read(appSettingsProvider.notifier).toggleTheme(
+            isCurrentlyDark
+                ? Brightness.dark
+                : Brightness.light,
+          );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Gagal mengganti tema aplikasi.',
-            ),
+            content: Text('Gagal mengganti tema aplikasi.'),
           ),
         );
       }
@@ -516,9 +584,9 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
-  // =====================================================
-  // PROFILE
-  // =====================================================
+  // ===================================================
+  // OPEN PROFILE
+  // ===================================================
 
   Future<void> _openProfile() async {
     final changed = await Navigator.of(context).push<bool>(
@@ -537,9 +605,9 @@ class _FinanceShellState extends State<FinanceShell> {
     }
   }
 
-  // =====================================================
-  // SETTINGS
-  // =====================================================
+  // ===================================================
+  // OPEN SETTINGS
+  // ===================================================
 
   Future<void> _openSettings() async {
     await Navigator.of(context).push<void>(
@@ -549,7 +617,6 @@ class _FinanceShellState extends State<FinanceShell> {
             appBar: AppBar(
               title: const Text('Pengaturan'),
             ),
-
             body: SafeArea(
               child: SettingsPage(
                 controller: widget.planController,
@@ -563,9 +630,9 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
-  // SAVINGS
-  // =====================================================
+  // ===================================================
+  // OPEN SAVINGS FORM
+  // ===================================================
 
   Future<void> _openSavingsForm({
     String? goalId,
@@ -582,16 +649,17 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  Future<void> _openSavingsDetail(
-    String goalId,
-  ) async {
+  // ===================================================
+  // OPEN SAVINGS DETAIL
+  // ===================================================
+
+  Future<void> _openSavingsDetail(String goalId) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) {
           return SavingsDetailPage(
             controller: widget.savingsController,
             goalId: goalId,
-
             onEditGoal: (id) {
               unawaited(
                 _openSavingsForm(goalId: id),
@@ -603,17 +671,19 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
+  // ===================================================
+  // OPEN SAVINGS PAGE
+  // ===================================================
+
   Future<void> _openSavingsPage() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) {
           return SavingsPage(
             controller: widget.savingsController,
-
             onCreateGoal: () {
               unawaited(_openSavingsForm());
             },
-
             onOpenGoal: (goalId) {
               unawaited(
                 _openSavingsDetail(goalId),
@@ -625,18 +695,22 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
-  // BUDGET PLANNER
-  // =====================================================
+  // ===================================================
+  // OPEN BUDGET PLANNER
+  // ===================================================
 
   Future<void> _openBudgetPlanner() async {
-    final initialPlan = widget.planController.plan;
+    final initialPlan = ref.read(financePlanProvider);
 
     if (initialPlan == null) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Rencana keuangan belum tersedia. Silakan isi data terlebih dahulu.'),
+          content: Text(
+            'Rencana keuangan belum tersedia. '
+            'Silakan isi data terlebih dahulu.',
+          ),
         ),
       );
       return;
@@ -649,16 +723,17 @@ class _FinanceShellState extends State<FinanceShell> {
             appBar: AppBar(
               title: const Text('Rencana & Anggaran'),
             ),
-
             body: SafeArea(
-              child: AnimatedBuilder(
-                animation: widget.planController,
-                builder: (context, _) {
+              child: Consumer(
+                builder: (context, ref, _) {
                   final current =
-                      widget.planController.plan ?? initialPlan;
+                      ref.watch(financePlanProvider) ?? initialPlan;
+
                   return PlannerPage(
                     plan: current,
-                    onSave: widget.planController.savePlan,
+                    onSave: ref
+                        .read(financePlanProvider.notifier)
+                        .savePlan,
                     jobOfferController: widget.jobOfferController,
                   );
                 },
@@ -670,9 +745,9 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
-  // SALARY CALCULATOR
-  // =====================================================
+  // ===================================================
+  // OPEN SALARY CALCULATOR
+  // ===================================================
 
   Future<void> _openSalaryCalculator() async {
     await Navigator.of(context).push<void>(
@@ -682,11 +757,16 @@ class _FinanceShellState extends State<FinanceShell> {
             appBar: AppBar(
               title: const Text('Kalkulator Gaji'),
             ),
-
             body: SafeArea(
-              child: SalaryCalculatorSection(
-                initialMonthlySalary:
-                    widget.planController.plan?.actualIncome ?? 0,
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final salary =
+                      ref.watch(financePlanProvider)?.actualIncome ?? 0;
+
+                  return SalaryCalculatorSection(
+                    initialMonthlySalary: salary,
+                  );
+                },
               ),
             ),
           );
@@ -695,9 +775,9 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
+  // ===================================================
   // SIMULASI SISA UANG
-  // =====================================================
+  // ===================================================
 
   Future<void> _openSisaUangSimulator() async {
     await Navigator.of(context).push<void>(
@@ -709,9 +789,9 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
-  // JOB OFFER
-  // =====================================================
+  // ===================================================
+  // ADD JOB OFFER
+  // ===================================================
 
   Future<void> _openJobOfferForm({
     JobOffer? offer,
@@ -728,6 +808,10 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
+  // ===================================================
+  // OPEN JOB OFFERS
+  // ===================================================
+
   Future<void> _openJobOffers() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -736,22 +820,15 @@ class _FinanceShellState extends State<FinanceShell> {
             appBar: AppBar(
               title: const Text('Tawaran Kerja'),
             ),
-
             body: SafeArea(
               child: JobOffersPage(
                 controller: widget.jobOfferController,
-
                 onAdd: () {
-                  unawaited(
-                    _openJobOfferForm(),
-                  );
+                  unawaited(_openJobOfferForm());
                 },
-
                 onEdit: (offer) {
                   unawaited(
-                    _openJobOfferForm(
-                      offer: offer,
-                    ),
+                    _openJobOfferForm(offer: offer),
                   );
                 },
               ),
@@ -762,14 +839,13 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
+  // ===================================================
   // HOME DASHBOARD
-  // =====================================================
+  // ===================================================
 
   Widget _home(FinancePlan plan) {
     return DashboardPage(
       plan: plan,
-
       onOpenPlanner: () {
         setState(() {
           _selectedIndex = 1;
@@ -778,13 +854,13 @@ class _FinanceShellState extends State<FinanceShell> {
     );
   }
 
-  // =====================================================
+  // ===================================================
   // MAIN NAVIGATION
-  // =====================================================
+  // ===================================================
 
   @override
   Widget build(BuildContext context) {
-    final plan = widget.planController.plan;
+    final plan = ref.watch(financePlanProvider);
 
     if (plan == null) {
       return const Scaffold(
@@ -794,7 +870,8 @@ class _FinanceShellState extends State<FinanceShell> {
       );
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark =
+        Theme.of(context).brightness == Brightness.dark;
 
     final pages = <Widget>[
       // HOME
@@ -803,35 +880,20 @@ class _FinanceShellState extends State<FinanceShell> {
       // PLANNER
       PlannerHubPage(
         plan: plan,
-
         onOpenBudget: () {
-          unawaited(
-            _openBudgetPlanner(),
-          );
+          unawaited(_openBudgetPlanner());
         },
-
         onOpenSalary: () {
-          unawaited(
-            _openSalaryCalculator(),
-          );
+          unawaited(_openSalaryCalculator());
         },
-
         onOpenJobs: () {
-          unawaited(
-            _openJobOffers(),
-          );
+          unawaited(_openJobOffers());
         },
-
         onOpenSavings: () {
-          unawaited(
-            _openSavingsPage(),
-          );
+          unawaited(_openSavingsPage());
         },
-
         onOpenSisaUang: () {
-          unawaited(
-            _openSisaUangSimulator(),
-          );
+          unawaited(_openSisaUangSimulator());
         },
       ),
 
@@ -843,53 +905,38 @@ class _FinanceShellState extends State<FinanceShell> {
       // PROFIL
       FinPlanProfileTab(
         profile: _profile,
-
         onEditProfile: () {
-          unawaited(
-            _openProfile(),
-          );
+          unawaited(_openProfile());
         },
-
         onOpenSettings: () {
-          unawaited(
-            _openSettings(),
-          );
+          unawaited(_openSettings());
         },
       ),
     ];
 
     return Scaffold(
-      // APP BAR
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
-
           children: [
             Container(
               width: 36,
               height: 36,
-
               decoration: BoxDecoration(
                 color: Theme.of(context)
                     .colorScheme
                     .primaryContainer,
-
                 borderRadius: BorderRadius.circular(12),
               ),
-
               child: Icon(
                 Icons.account_balance_wallet_rounded,
-
                 color: Theme.of(context)
                     .colorScheme
                     .onPrimaryContainer,
-
                 size: 22,
               ),
             ),
-
             const SizedBox(width: 10),
-
             const Text(
               'FinPlan',
               style: TextStyle(
@@ -899,29 +946,20 @@ class _FinanceShellState extends State<FinanceShell> {
             ),
           ],
         ),
-
         actions: [
           IconButton(
-            tooltip: isDark
-                ? 'Light Mode'
-                : 'Dark Mode',
-
-            onPressed: _changingTheme
-                ? null
-                : _toggleTheme,
-
+            tooltip: isDark ? 'Light Mode' : 'Dark Mode',
+            onPressed: _changingTheme ? null : _toggleTheme,
             icon: Icon(
               isDark
                   ? Icons.light_mode_rounded
                   : Icons.dark_mode_rounded,
             ),
           ),
-
           const SizedBox(width: 8),
         ],
       ),
 
-      // MAIN CONTENT
       body: SafeArea(
         child: IndexedStack(
           index: _selectedIndex,
@@ -929,71 +967,39 @@ class _FinanceShellState extends State<FinanceShell> {
         ),
       ),
 
-      // BOTTOM NAVIGATION
       bottomNavigationBar: NavigationBar(
-        height: (72 * widget.fontScale).clamp(72.0, 110.0).toDouble(),
-
+        height: (72 * widget.fontScale)
+            .clamp(72.0, 110.0)
+            .toDouble(),
         selectedIndex: _selectedIndex,
-
-        indicatorColor: Theme.of(context)
-            .colorScheme
-            .primaryContainer,
-
+        indicatorColor:
+            Theme.of(context).colorScheme.primaryContainer,
         labelBehavior:
             NavigationDestinationLabelBehavior.alwaysShow,
-
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-            ),
-
-            selectedIcon: Icon(
-              Icons.home_rounded,
-            ),
-
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
           ),
-
           NavigationDestination(
-            icon: Icon(
-              Icons.grid_view_outlined,
-            ),
-
-            selectedIcon: Icon(
-              Icons.grid_view_rounded,
-            ),
-
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view_rounded),
             label: 'Planner',
           ),
-
           NavigationDestination(
-            icon: Icon(
-              Icons.receipt_long_outlined,
-            ),
-
-            selectedIcon: Icon(
-              Icons.receipt_long_rounded,
-            ),
-
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long_rounded),
             label: 'Transaksi',
           ),
-
           NavigationDestination(
-            icon: Icon(
-              Icons.person_outline_rounded,
-            ),
-
-            selectedIcon: Icon(
-              Icons.person_rounded,
-            ),
-
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
             label: 'Profil',
           ),
         ],
@@ -1037,21 +1043,18 @@ class PlannerHubPage extends StatelessWidget {
         'Pembagian gaji',
         onOpenBudget,
       ),
-
       (
         Icons.calculate_rounded,
         'Kalkulator Gaji',
         'Hitung pendapatan',
         onOpenSalary,
       ),
-
       (
         Icons.work_outline_rounded,
         'Tawaran Kerja',
         'Bandingkan pilihan',
         onOpenJobs,
       ),
-
       (
         Icons.savings_rounded,
         'Kantong Tabungan',
@@ -1062,7 +1065,9 @@ class PlannerHubPage extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+        final scale =
+            MediaQuery.textScalerOf(context).scale(16) / 16;
+
         final columns = constraints.maxWidth >= 850
             ? 4
             : constraints.maxWidth >= 480
@@ -1078,7 +1083,6 @@ class PlannerHubPage extends StatelessWidget {
             18,
             32,
           ),
-
           children: [
             // HEADER
             Row(
@@ -1086,24 +1090,17 @@ class PlannerHubPage extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Atur Keuanganmu',
-
-                    style: theme
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-
                 Container(
                   padding: const EdgeInsets.all(10),
-
                   decoration: BoxDecoration(
                     color: scheme.primaryContainer,
                     borderRadius: BorderRadius.circular(15),
                   ),
-
                   child: Icon(
                     Icons.auto_awesome_rounded,
                     color: scheme.onPrimaryContainer,
@@ -1117,7 +1114,6 @@ class PlannerHubPage extends StatelessWidget {
             // KARTU PENGHASILAN
             Container(
               padding: const EdgeInsets.all(20),
-
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [
@@ -1125,19 +1121,14 @@ class PlannerHubPage extends StatelessWidget {
                     Color(0xFF059669),
                   ],
                 ),
-
                 borderRadius: BorderRadius.circular(24),
               ),
-
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(
                     mainAxisAlignment:
                         MainAxisAlignment.spaceBetween,
-
                     children: [
                       Text(
                         'Penghasilan Bulanan',
@@ -1146,7 +1137,6 @@ class PlannerHubPage extends StatelessWidget {
                           fontSize: 13,
                         ),
                       ),
-
                       Icon(
                         Icons.account_balance_wallet_outlined,
                         color: Colors.white70,
@@ -1159,10 +1149,8 @@ class PlannerHubPage extends StatelessWidget {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-
                     child: Text(
                       rupiah(plan.actualIncome),
-
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 27,
@@ -1180,14 +1168,10 @@ class PlannerHubPage extends StatelessWidget {
                         color: Color(0xFFBBF7D0),
                         size: 18,
                       ),
-
                       const SizedBox(width: 8),
-
                       Expanded(
                         child: Text(
-                          'Target ideal: '
-                          '${rupiah(plan.idealIncome)}',
-
+                          'Target ideal: ${rupiah(plan.idealIncome)}',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
@@ -1202,32 +1186,24 @@ class PlannerHubPage extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // FITUR UNGGULAN: SIMULASI SISA UANG
+            // SIMULASI SISA UANG
             Material(
               color: scheme.primaryContainer,
-
               borderRadius: BorderRadius.circular(22),
-
               child: InkWell(
                 borderRadius: BorderRadius.circular(22),
-
                 onTap: onOpenSisaUang,
-
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-
                   child: Row(
                     children: [
                       Container(
                         width: 54,
                         height: 54,
-
                         decoration: BoxDecoration(
                           color: scheme.primary,
-                          borderRadius:
-                              BorderRadius.circular(17),
+                          borderRadius: BorderRadius.circular(17),
                         ),
-
                         child: Icon(
                           Icons.hourglass_bottom_rounded,
                           color: scheme.onPrimary,
@@ -1241,29 +1217,19 @@ class PlannerHubPage extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment:
                               CrossAxisAlignment.start,
-
                           children: [
                             Text(
                               'Uang Sampai Gajian',
-
-                              style: theme
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    fontWeight:
-                                        FontWeight.w800,
-                                  ),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-
                             const SizedBox(height: 4),
-
                             Text(
                               'Simulasi sisa uangmu',
-
                               style: TextStyle(
                                 fontSize: 12,
-                                color:
-                                    scheme.onSurfaceVariant,
+                                color: scheme.onSurfaceVariant,
                               ),
                             ),
                           ],
@@ -1282,10 +1248,8 @@ class PlannerHubPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // MENU FITUR
             Text(
               'Jelajahi Fitur',
-
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w800,
               ),
@@ -1293,24 +1257,24 @@ class PlannerHubPage extends StatelessWidget {
 
             const SizedBox(height: 14),
 
+            // FEATURE GRID
             GridView.builder(
               shrinkWrap: true,
-
-              physics:
-                  const NeverScrollableScrollPhysics(),
-
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: items.length,
-
               gridDelegate:
                   SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
                 mainAxisExtent: columns == 1
-                    ? (130 * scale).clamp(130.0, 195.0).toDouble()
-                    : (175 * scale).clamp(175.0, 290.0).toDouble(),
+                    ? (130 * scale)
+                        .clamp(130.0, 195.0)
+                        .toDouble()
+                    : (175 * scale)
+                        .clamp(175.0, 290.0)
+                        .toDouble(),
               ),
-
               itemBuilder: (context, index) {
                 final item = items[index];
 
@@ -1358,53 +1322,38 @@ class _PlannerMenuTile extends StatelessWidget {
         return Card(
           margin: EdgeInsets.zero,
           clipBehavior: Clip.antiAlias,
-
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-
             side: BorderSide(
               color: scheme.outlineVariant.withValues(
                 alpha: 0.5,
               ),
             ),
           ),
-
           child: InkWell(
             onTap: onTap,
-
             child: Padding(
-              padding: EdgeInsets.all(
-                compact ? 11 : 14,
-              ),
-
+              padding: EdgeInsets.all(compact ? 11 : 14),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment:
                         MainAxisAlignment.spaceBetween,
-
                     children: [
                       Container(
                         width: compact ? 43 : 48,
                         height: compact ? 43 : 48,
-
                         decoration: BoxDecoration(
                           color: scheme.primaryContainer,
-                          borderRadius:
-                              BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(15),
                         ),
-
                         child: Icon(
                           icon,
                           size: compact ? 24 : 27,
-                          color:
-                              scheme.onPrimaryContainer,
+                          color: scheme.onPrimaryContainer,
                         ),
                       ),
-
                       Icon(
                         Icons.arrow_outward_rounded,
                         color: scheme.primary,
@@ -1419,7 +1368,6 @@ class _PlannerMenuTile extends StatelessWidget {
                     title,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
-
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontSize: compact ? 12.5 : 14,
                       fontWeight: FontWeight.w800,
@@ -1432,7 +1380,6 @@ class _PlannerMenuTile extends StatelessWidget {
                     description,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-
                     style: TextStyle(
                       fontSize: 11,
                       color: scheme.onSurfaceVariant,

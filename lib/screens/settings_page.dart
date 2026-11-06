@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../state/app_settings_controller.dart';
+import '../state/finance_plan_notifier.dart';
 import '../state/plan_controller.dart';
 
 const _darkGreen = Color(0xFF064E3B);
 const _green = Color(0xFF059669);
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({
     super.key,
     required this.controller,
@@ -18,10 +21,10 @@ class SettingsPage extends StatefulWidget {
   final ValueChanged<double> onTextScaleChanged;
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   late double _selectedScale;
   bool _changingTheme = false;
   bool _deleting = false;
@@ -56,10 +59,12 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _changeTheme(ThemeMode mode) async {
-    if (_changingTheme || widget.controller.themeMode == mode) return;
+    if (_changingTheme || ref.read(appSettingsProvider).themeMode == mode) {
+      return;
+    }
     setState(() => _changingTheme = true);
     try {
-      await widget.controller.changeThemeMode(mode);
+      await ref.read(appSettingsProvider.notifier).setThemeMode(mode);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +108,7 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed != true || !mounted) return;
     setState(() => _deleting = true);
     try {
-      await widget.controller.clearPlan();
+      await ref.read(financePlanProvider.notifier).clearPlan();
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.pop(context);
       }
@@ -327,6 +332,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedThemeMode = ref.watch(appSettingsProvider).themeMode;
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
@@ -399,7 +405,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 26),
             _sectionTitle(context, 'Tampilan Aplikasi'),
-            _themeSettings(context, widget.controller.themeMode),
+            _themeSettings(context, selectedThemeMode),
             const SizedBox(height: 25),
             _sectionTitle(context, 'Aksesibilitas'),
             _fontSettings(context),

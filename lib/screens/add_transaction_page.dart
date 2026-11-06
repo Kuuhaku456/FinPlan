@@ -1,60 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/money.dart';
 import '../models/finance_transaction.dart';
 import '../state/transaction_controller.dart';
+import '../state/transaction_notifier.dart';
 
-// =====================================================
-// WARNA FINPLAN
-// =====================================================
+// ==========================================
+// FINPLAN COLORS
+// ==========================================
 
-const Color _darkGreen = Color(0xFF064E3B);
-const Color _green = Color(0xFF059669);
-const Color _red = Color(0xFFEF4444);
+const _darkGreen = Color(0xFF064E3B);
+const _green = Color(0xFF059669);
 
-// =====================================================
+// ==========================================
 // ADD / EDIT TRANSACTION PAGE
-// =====================================================
+// ==========================================
 
-class AddTransactionPage extends StatefulWidget {
+class AddTransactionPage
+    extends ConsumerStatefulWidget {
   const AddTransactionPage({
     super.key,
     required this.controller,
     this.transaction,
   });
 
+  // Dipertahankan untuk kompatibilitas
+  // dengan navigasi yang sudah ada.
   final TransactionController controller;
+
   final FinanceTransaction? transaction;
 
   @override
-  State<AddTransactionPage> createState() {
+  ConsumerState<AddTransactionPage> createState() {
     return _AddTransactionPageState();
   }
 }
 
 class _AddTransactionPageState
-    extends State<AddTransactionPage> {
-  static const String _customValue = '__custom__';
-
-  final _formKey = GlobalKey<FormState>();
-
-  final _amountController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _customAccountController =
-      TextEditingController();
-
-  late DateTime _selectedDate;
-
-  TransactionType _transactionType =
-      TransactionType.expense;
-
-  AccountType _accountType = AccountType.bank;
-
-  String _selectedAccount = 'BCA';
-
-  bool _isCustomAccount = false;
-  bool _saving = false;
+    extends ConsumerState<AddTransactionPage> {
+  static const _customValue = '__custom__';
 
   static const _months = [
     'Januari',
@@ -71,9 +57,35 @@ class _AddTransactionPageState
     'Desember',
   ];
 
-  // ===================================================
-  // PILIHAN AKUN
-  // ===================================================
+  final _formKey = GlobalKey<FormState>();
+
+  final _amountController =
+      TextEditingController();
+
+  final _descriptionController =
+      TextEditingController();
+
+  final _customAccountController =
+      TextEditingController();
+
+  late DateTime _selectedDate;
+
+  TransactionType _transactionType =
+      TransactionType.expense;
+
+  AccountType _accountType =
+      AccountType.bank;
+
+  String _selectedAccount = 'BCA';
+
+  bool _isCustomAccount = false;
+  bool _saving = false;
+
+  bool get _editing => widget.transaction != null;
+
+  // ========================================
+  // ACCOUNT OPTIONS
+  // ========================================
 
   List<String> _accountOptions(AccountType type) {
     switch (type) {
@@ -102,29 +114,31 @@ class _AddTransactionPageState
         ];
 
       case AccountType.cash:
-        return const ['Tunai'];
+        return const [
+          'Tunai',
+        ];
 
       case AccountType.other:
         return const [];
     }
   }
 
-  // ===================================================
-  // INITIAL STATE
-  // ===================================================
+  // ========================================
+  // INITIALIZATION
+  // ========================================
 
   @override
   void initState() {
     super.initState();
 
     final transaction = widget.transaction;
-    final today = DateTime.now();
+    final now = DateTime.now();
 
     _selectedDate = transaction?.date ??
         DateTime(
-          today.year,
-          today.month,
-          today.day,
+          now.year,
+          now.month,
+          now.day,
         );
 
     _transactionType =
@@ -139,7 +153,9 @@ class _AddTransactionPageState
     _descriptionController.text =
         transaction?.description ?? '';
 
-    final options = _accountOptions(_accountType);
+    final options = _accountOptions(
+      _accountType,
+    );
 
     if (transaction != null &&
         options.contains(transaction.accountName)) {
@@ -148,6 +164,7 @@ class _AddTransactionPageState
     } else if (transaction != null) {
       _selectedAccount = _customValue;
       _isCustomAccount = true;
+
       _customAccountController.text =
           transaction.accountName;
     } else if (options.isNotEmpty) {
@@ -168,9 +185,9 @@ class _AddTransactionPageState
     super.dispose();
   }
 
-  // ===================================================
-  // TANGGAL
-  // ===================================================
+  // ========================================
+  // DATE FORMAT
+  // ========================================
 
   String _formatDate(DateTime date) {
     return '${date.day} '
@@ -178,8 +195,12 @@ class _AddTransactionPageState
         '${date.year}';
   }
 
+  // ========================================
+  // DATE PICKER
+  // ========================================
+
   Future<void> _pickDate() async {
-    final selected = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2000),
@@ -187,16 +208,16 @@ class _AddTransactionPageState
       helpText: 'Pilih tanggal transaksi',
     );
 
-    if (selected == null || !mounted) return;
-
-    setState(() {
-      _selectedDate = selected;
-    });
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
   }
 
-  // ===================================================
-  // GANTI JENIS AKUN
-  // ===================================================
+  // ========================================
+  // CHANGE ACCOUNT TYPE
+  // ========================================
 
   void _changeAccountType(AccountType type) {
     final options = _accountOptions(type);
@@ -204,15 +225,19 @@ class _AddTransactionPageState
     setState(() {
       _accountType = type;
 
-      _selectedAccount = options.isNotEmpty
-          ? options.first
-          : _customValue;
+      _selectedAccount = options.isEmpty
+          ? _customValue
+          : options.first;
 
       _isCustomAccount = options.isEmpty;
 
       _customAccountController.clear();
     });
   }
+
+  // ========================================
+  // EFFECTIVE ACCOUNT NAME
+  // ========================================
 
   String get _effectiveAccountName {
     if (_isCustomAccount ||
@@ -223,27 +248,30 @@ class _AddTransactionPageState
     return _selectedAccount;
   }
 
-  // ===================================================
-  // NOTIFIKASI
-  // ===================================================
+  // ========================================
+  // SNACKBAR
+  // ========================================
 
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
-  // ===================================================
-  // SIMPAN TRANSAKSI
-  // ===================================================
+  // ========================================
+  // SAVE USING TRANSACTION NOTIFIER
+  // ========================================
 
   Future<void> _saveTransaction() async {
-    if (_saving || widget.controller.isSaving) {
+    if (_saving ||
+        ref.read(transactionStateProvider).isSaving) {
       return;
     }
 
@@ -258,14 +286,18 @@ class _AddTransactionPageState
     );
 
     if (amount <= 0) {
-      _showMessage('Nominal harus lebih dari Rp0.');
+      _showMessage(
+        'Nominal harus lebih dari Rp0.',
+      );
       return;
     }
 
     final accountName = _effectiveAccountName;
 
     if (accountName.isEmpty) {
-      _showMessage('Nama akun harus diisi.');
+      _showMessage(
+        'Nama akun harus diisi.',
+      );
       return;
     }
 
@@ -274,45 +306,51 @@ class _AddTransactionPageState
     });
 
     try {
-      final FinanceTransaction transaction;
+      final notifier = ref.read(
+        transactionStateProvider.notifier,
+      );
 
-      if (widget.transaction != null) {
-        // MODE EDIT
+      final description =
+          _descriptionController.text.trim();
 
-        transaction = widget.transaction!.copyWith(
+      if (_editing) {
+        // =================================
+        // UPDATE TRANSACTION
+        // =================================
+
+        final updated = widget.transaction!.copyWith(
           date: _selectedDate,
           amount: amount,
           type: _transactionType,
           accountType: _accountType,
           accountName: accountName,
-          description:
-              _descriptionController.text.trim(),
+          description: description,
         );
 
-        final updated =
-            await widget.controller.updateTransaction(
-          transaction,
+        final success = await notifier.updateTransaction(
+          updated,
         );
 
-        if (!updated) {
+        if (!success) {
           throw StateError(
             'Transaksi tidak ditemukan.',
           );
         }
       } else {
-        // MODE TAMBAH
+        // =================================
+        // CREATE TRANSACTION
+        // =================================
 
-        transaction = FinanceTransaction(
+        final transaction = FinanceTransaction(
           date: _selectedDate,
           amount: amount,
           type: _transactionType,
           accountType: _accountType,
           accountName: accountName,
-          description:
-              _descriptionController.text.trim(),
+          description: description,
         );
 
-        await widget.controller.addTransaction(
+        await notifier.addTransaction(
           transaction,
         );
       }
@@ -320,17 +358,17 @@ class _AddTransactionPageState
       if (!mounted) return;
 
       _showMessage(
-        widget.transaction == null
-            ? 'Transaksi berhasil ditambahkan.'
-            : 'Transaksi berhasil diperbarui.',
+        _editing
+            ? 'Transaksi berhasil diperbarui.'
+            : 'Transaksi berhasil ditambahkan.',
       );
 
       Navigator.of(context).pop(true);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
 
       _showMessage(
-        'Gagal menyimpan transaksi. Coba lagi.',
+        'Gagal menyimpan transaksi: $error',
       );
     } finally {
       if (mounted) {
@@ -341,9 +379,9 @@ class _AddTransactionPageState
     }
   }
 
-  // ===================================================
-  // KARTU UI
-  // ===================================================
+  // ========================================
+  // CARD CONTAINER
+  // ========================================
 
   Widget _card(Widget child) {
     final scheme = Theme.of(context).colorScheme;
@@ -363,9 +401,9 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // JUDUL BAGIAN
-  // ===================================================
+  // ========================================
+  // SECTION TITLE
+  // ========================================
 
   Widget _sectionTitle(
     String title,
@@ -396,12 +434,12 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // KARTU PREVIEW NOMINAL
-  // ===================================================
+  // ========================================
+  // TRANSACTION PREVIEW
+  // ========================================
 
   Widget _previewCard() {
-    final isIncome =
+    final income =
         _transactionType == TransactionType.income;
 
     final amount = parseRupiah(
@@ -439,7 +477,7 @@ class _AddTransactionPageState
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
-                  isIncome
+                  income
                       ? Icons.south_west_rounded
                       : Icons.north_east_rounded,
                   color: Colors.white,
@@ -451,7 +489,7 @@ class _AddTransactionPageState
 
               Expanded(
                 child: Text(
-                  isIncome
+                  income
                       ? 'Uang Masuk'
                       : 'Uang Keluar',
                   style: const TextStyle(
@@ -475,7 +513,7 @@ class _AddTransactionPageState
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
-              '${isIncome ? '+' : '-'}${rupiah(amount)}',
+              '${income ? '+' : '-'}${rupiah(amount)}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 34,
@@ -526,15 +564,17 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // PILIH JENIS TRANSAKSI
-  // ===================================================
+  // ========================================
+  // TRANSACTION TYPE SELECTOR
+  // ========================================
 
   Widget _typeSelector() {
     return SizedBox(
       width: double.infinity,
+
       child: SegmentedButton<TransactionType>(
         showSelectedIcon: false,
+
         segments: const [
           ButtonSegment<TransactionType>(
             value: TransactionType.expense,
@@ -552,33 +592,38 @@ class _AddTransactionPageState
             label: Text('Pemasukan'),
           ),
         ],
-        selected: {_transactionType},
-        onSelectionChanged: (selection) {
-          if (selection.isEmpty) return;
 
-          setState(() {
-            _transactionType = selection.first;
-          });
+        selected: {_transactionType},
+
+        onSelectionChanged: (selection) {
+          if (selection.isNotEmpty) {
+            setState(() {
+              _transactionType = selection.first;
+            });
+          }
         },
       ),
     );
   }
 
-  // ===================================================
-  // INPUT NOMINAL
-  // ===================================================
+  // ========================================
+  // AMOUNT INPUT
+  // ========================================
 
   Widget _amountField() {
     return TextFormField(
       controller: _amountController,
       keyboardType: TextInputType.number,
+
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
         LengthLimitingTextInputFormatter(12),
       ],
+
       onChanged: (_) {
         setState(() {});
       },
+
       decoration: const InputDecoration(
         labelText: 'Nominal Transaksi',
         hintText: 'Contoh: 25000',
@@ -587,6 +632,7 @@ class _AddTransactionPageState
           Icons.payments_outlined,
         ),
       ),
+
       validator: (value) {
         if (value == null || value.isEmpty) {
           return 'Masukkan nominal transaksi.';
@@ -601,9 +647,9 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // PILIHAN NOMINAL CEPAT
-  // ===================================================
+  // ========================================
+  // QUICK AMOUNTS
+  // ========================================
 
   Widget _quickAmounts() {
     const amounts = [
@@ -616,6 +662,7 @@ class _AddTransactionPageState
     return Wrap(
       spacing: 8,
       runSpacing: 8,
+
       children: amounts.map((amount) {
         final selected =
             parseRupiah(_amountController.text) == amount;
@@ -629,7 +676,8 @@ class _AddTransactionPageState
           selectedColor: const Color(0xFFD1FAE5),
           onSelected: (_) {
             setState(() {
-              _amountController.text = amount.toString();
+              _amountController.text =
+                  amount.toString();
             });
           },
         );
@@ -637,9 +685,9 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // PILIH TANGGAL
-  // ===================================================
+  // ========================================
+  // DATE FIELD
+  // ========================================
 
   Widget _dateField() {
     final scheme = Theme.of(context).colorScheme;
@@ -647,20 +695,24 @@ class _AddTransactionPageState
     return Material(
       color: scheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(15),
+
       child: InkWell(
         onTap: _pickDate,
         borderRadius: BorderRadius.circular(15),
+
         child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 14,
           ),
+
           decoration: BoxDecoration(
             border: Border.all(
               color: scheme.outlineVariant,
             ),
             borderRadius: BorderRadius.circular(15),
           ),
+
           child: Row(
             children: [
               Icon(
@@ -705,27 +757,31 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // JENIS SUMBER DANA
-  // ===================================================
+  // ========================================
+  // ACCOUNT ICON
+  // ========================================
+
+  IconData _accountIcon(AccountType type) {
+    switch (type) {
+      case AccountType.bank:
+        return Icons.account_balance_outlined;
+
+      case AccountType.eMoney:
+        return Icons.account_balance_wallet_outlined;
+
+      case AccountType.cash:
+        return Icons.payments_outlined;
+
+      case AccountType.other:
+        return Icons.more_horiz_rounded;
+    }
+  }
+
+  // ========================================
+  // ACCOUNT TYPE SELECTOR
+  // ========================================
 
   Widget _accountTypeSelector() {
-    IconData iconFor(AccountType type) {
-      switch (type) {
-        case AccountType.bank:
-          return Icons.account_balance_outlined;
-
-        case AccountType.eMoney:
-          return Icons.account_balance_wallet_outlined;
-
-        case AccountType.cash:
-          return Icons.payments_outlined;
-
-        case AccountType.other:
-          return Icons.more_horiz_rounded;
-      }
-    }
-
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -733,7 +789,7 @@ class _AddTransactionPageState
         for (final type in AccountType.values)
           ChoiceChip(
             avatar: Icon(
-              iconFor(type),
+              _accountIcon(type),
               size: 17,
             ),
             label: Text(type.label),
@@ -748,12 +804,14 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // PILIH NAMA AKUN
-  // ===================================================
+  // ========================================
+  // ACCOUNT NAME FIELD
+  // ========================================
 
   Widget _accountField() {
-    final options = _accountOptions(_accountType);
+    final options = _accountOptions(
+      _accountType,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -767,6 +825,7 @@ class _AddTransactionPageState
                 ? _customValue
                 : _selectedAccount,
             isExpanded: true,
+
             decoration: InputDecoration(
               labelText:
                   _transactionType == TransactionType.income
@@ -776,6 +835,7 @@ class _AddTransactionPageState
                 Icons.account_balance_wallet_outlined,
               ),
             ),
+
             items: [
               for (final account in options)
                 DropdownMenuItem<String>(
@@ -790,6 +850,7 @@ class _AddTransactionPageState
                 ),
               ),
             ],
+
             onChanged: (value) {
               if (value == null) return;
 
@@ -810,6 +871,7 @@ class _AddTransactionPageState
             controller: _customAccountController,
             textCapitalization:
                 TextCapitalization.words,
+
             decoration: const InputDecoration(
               labelText: 'Nama Akun',
               hintText: 'Contoh: Bank daerah',
@@ -817,6 +879,7 @@ class _AddTransactionPageState
                 Icons.edit_outlined,
               ),
             ),
+
             validator: (value) {
               if (value == null ||
                   value.trim().isEmpty) {
@@ -825,6 +888,7 @@ class _AddTransactionPageState
 
               return null;
             },
+
             onChanged: (_) {
               setState(() {});
             },
@@ -834,9 +898,9 @@ class _AddTransactionPageState
     );
   }
 
-  // ===================================================
-  // DESKRIPSI TRANSAKSI
-  // ===================================================
+  // ========================================
+  // DESCRIPTION FIELD
+  // ========================================
 
   Widget _descriptionField() {
     return TextFormField(
@@ -845,6 +909,7 @@ class _AddTransactionPageState
       maxLength: 250,
       textCapitalization:
           TextCapitalization.sentences,
+
       decoration: const InputDecoration(
         labelText: 'Deskripsi',
         hintText: 'Contoh: Makan siang',
@@ -853,6 +918,7 @@ class _AddTransactionPageState
           Icons.edit_note_outlined,
         ),
       ),
+
       validator: (value) {
         if (value == null ||
             value.trim().isEmpty) {
@@ -861,27 +927,33 @@ class _AddTransactionPageState
 
         return null;
       },
+
       onChanged: (_) {
         setState(() {});
       },
     );
   }
 
-  // ===================================================
-  // TAMPILAN UTAMA
-  // ===================================================
+  // ========================================
+  // MAIN BUILD - RIVERPOD
+  // ========================================
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.transaction != null;
+    // Hanya memantau status penyimpanan.
+    final isSaving = ref.watch(
+      transactionStateProvider.select(
+        (state) => state.isSaving,
+      ),
+    );
 
-    final isIncome =
+    final income =
         _transactionType == TransactionType.income;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          isEditing
+          _editing
               ? 'Edit Transaksi'
               : 'Tambah Transaksi',
           style: const TextStyle(
@@ -890,7 +962,9 @@ class _AddTransactionPageState
         ),
       ),
 
-      // TOMBOL SIMPAN TETAP DI BAWAH
+      // ====================================
+      // FIXED SAVE BUTTON
+      // ====================================
 
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(
@@ -899,13 +973,15 @@ class _AddTransactionPageState
           18,
           14,
         ),
+
         child: SizedBox(
           height: 54,
+
           child: FilledButton.icon(
-            onPressed:
-                _saving || widget.controller.isSaving
-                    ? null
-                    : _saveTransaction,
+            onPressed: _saving || isSaving
+                ? null
+                : _saveTransaction,
+
             icon: _saving
                 ? const SizedBox(
                     width: 18,
@@ -917,10 +993,11 @@ class _AddTransactionPageState
                 : const Icon(
                     Icons.check_circle_outline_rounded,
                   ),
+
             label: Text(
               _saving
                   ? 'Menyimpan...'
-                  : isEditing
+                  : _editing
                       ? 'Simpan Perubahan'
                       : 'Simpan Transaksi',
               style: const TextStyle(
@@ -931,14 +1008,20 @@ class _AddTransactionPageState
         ),
       ),
 
+      // ====================================
+      // FORM CONTENT
+      // ====================================
+
       body: SafeArea(
         child: Form(
           key: _formKey,
+
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(
                 maxWidth: 700,
               ),
+
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
                   18,
@@ -946,22 +1029,17 @@ class _AddTransactionPageState
                   18,
                   26,
                 ),
-                children: [
-                  // =====================================
-                  // PREVIEW UTAMA
-                  // =====================================
 
+                children: [
+                  // LIVE PREVIEW
                   _previewCard(),
 
                   const SizedBox(height: 26),
 
-                  // =====================================
-                  // JENIS TRANSAKSI
-                  // =====================================
-
+                  // TRANSACTION TYPE
                   _sectionTitle(
                     'Jenis Transaksi',
-                    isIncome
+                    income
                         ? Icons.trending_up_rounded
                         : Icons.trending_down_rounded,
                   ),
@@ -970,10 +1048,7 @@ class _AddTransactionPageState
 
                   const SizedBox(height: 25),
 
-                  // =====================================
-                  // NOMINAL DAN TANGGAL
-                  // =====================================
-
+                  // AMOUNT AND DATE
                   _sectionTitle(
                     'Detail Transaksi',
                     Icons.payments_outlined,
@@ -999,10 +1074,7 @@ class _AddTransactionPageState
 
                   const SizedBox(height: 25),
 
-                  // =====================================
-                  // SUMBER DANA
-                  // =====================================
-
+                  // ACCOUNT
                   _sectionTitle(
                     'Sumber Dana',
                     Icons.account_balance_wallet_outlined,
@@ -1024,10 +1096,7 @@ class _AddTransactionPageState
 
                   const SizedBox(height: 25),
 
-                  // =====================================
-                  // KETERANGAN
-                  // =====================================
-
+                  // DESCRIPTION
                   _sectionTitle(
                     'Keterangan',
                     Icons.edit_note_outlined,

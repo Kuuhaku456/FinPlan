@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/money.dart';
 import '../models/savings_goal.dart';
 import '../state/savings_controller.dart';
+import '../state/savings_notifier.dart';
 
-// =====================================================
-// WARNA FINPLAN
-// =====================================================
+// ==========================================
+// FINPLAN COLORS
+// ==========================================
 
-const Color _darkGreen = Color(0xFF064E3B);
-const Color _green = Color(0xFF059669);
-const Color _mint = Color(0xFFA7F3D0);
-const Color _red = Color(0xFFEF4444);
-const Color _amber = Color(0xFFF59E0B);
+const _darkGreen = Color(0xFF064E3B);
+const _green = Color(0xFF059669);
+const _mint = Color(0xFFA7F3D0);
+const _red = Color(0xFFEF4444);
+const _amber = Color(0xFFF59E0B);
 
-// =====================================================
-// FILTER DAN AKSI
-// =====================================================
+// ==========================================
+// ENUM & MODELS
+// ==========================================
 
 enum _SavingsFilter {
   active,
@@ -32,20 +34,20 @@ enum _GoalAction {
 }
 
 class _SavingsInput {
-  const _SavingsInput({
-    required this.amount,
-    required this.note,
-  });
+  const _SavingsInput(
+    this.amount,
+    this.note,
+  );
 
   final int amount;
   final String note;
 }
 
-// =====================================================
-// SAVINGS PAGE
-// =====================================================
+// ==========================================
+// SAVINGS PAGE - RIVERPOD
+// ==========================================
 
-class SavingsPage extends StatefulWidget {
+class SavingsPage extends ConsumerStatefulWidget {
   const SavingsPage({
     super.key,
     required this.controller,
@@ -53,16 +55,27 @@ class SavingsPage extends StatefulWidget {
     required this.onOpenGoal,
   });
 
+  // Dipertahankan untuk kompatibilitas
+  // dengan navigasi yang sudah ada.
   final SavingsController controller;
+
   final VoidCallback onCreateGoal;
   final ValueChanged<String> onOpenGoal;
 
   @override
-  State<SavingsPage> createState() => _SavingsPageState();
+  ConsumerState<SavingsPage> createState() {
+    return _SavingsPageState();
+  }
 }
 
-class _SavingsPageState extends State<SavingsPage> {
-  _SavingsFilter _filter = _SavingsFilter.active;
+class _SavingsPageState
+    extends ConsumerState<SavingsPage> {
+  _SavingsFilter _filter =
+      _SavingsFilter.active;
+
+  // ========================================
+  // INITIALIZATION
+  // ========================================
 
   @override
   void initState() {
@@ -71,30 +84,23 @@ class _SavingsPageState extends State<SavingsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      if (!widget.controller.hasLoaded) {
-        widget.controller.loadGoals();
+      final state = ref.read(
+        savingsStateProvider,
+      );
+
+      if (!state.hasLoaded && !state.isLoading) {
+        ref
+            .read(savingsStateProvider.notifier)
+            .loadGoals();
       }
     });
   }
 
-  @override
-  void didUpdateWidget(covariant SavingsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  // ========================================
+  // SNACKBAR
+  // ========================================
 
-    if (oldWidget.controller != widget.controller) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        widget.controller.loadGoals();
-      });
-    }
-  }
-
-  // ===================================================
-  // NOTIFIKASI
-  // ===================================================
-
-  void _showMessage(String message) {
+  void _message(String message) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -107,18 +113,22 @@ class _SavingsPageState extends State<SavingsPage> {
       );
   }
 
-  // ===================================================
-  // INPUT SETOR / AMBIL
-  // ===================================================
+  // ========================================
+  // INPUT SETOR / AMBIL TABUNGAN
+  // ========================================
 
   Future<_SavingsInput?> _askAmount({
     required SavingsGoal goal,
-    required bool isDeposit,
+    required bool deposit,
   }) async {
-    final amountController = TextEditingController();
-    final noteController = TextEditingController();
+    final amountController =
+        TextEditingController();
 
-    final result = await showDialog<_SavingsInput>(
+    final noteController =
+        TextEditingController();
+
+    final result =
+        await showDialog<_SavingsInput>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
@@ -128,25 +138,33 @@ class _SavingsPageState extends State<SavingsPage> {
             );
 
             final exceedsBalance =
-                !isDeposit && amount > goal.savedAmount;
+                !deposit &&
+                amount > goal.savedAmount;
 
-            final valid = amount > 0 && !exceedsBalance;
+            final canSubmit =
+                amount > 0 && !exceedsBalance;
 
             return AlertDialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius:
+                    BorderRadius.circular(24),
               ),
+
               title: Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: isDeposit
+                    backgroundColor: deposit
                         ? _mint
                         : const Color(0xFFFEE2E2),
+
                     child: Icon(
-                      isDeposit
+                      deposit
                           ? Icons.add_rounded
                           : Icons.remove_rounded,
-                      color: isDeposit ? _darkGreen : _red,
+
+                      color: deposit
+                          ? _darkGreen
+                          : _red,
                     ),
                   ),
 
@@ -154,25 +172,35 @@ class _SavingsPageState extends State<SavingsPage> {
 
                   Expanded(
                     child: Text(
-                      isDeposit ? 'Setor Tabungan' : 'Ambil Tabungan',
+                      deposit
+                          ? 'Setor Tabungan'
+                          : 'Ambil Tabungan',
+
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                   ),
                 ],
               ),
+
               content: SingleChildScrollView(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize:
+                      MainAxisSize.min,
+
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
+
                   children: [
                     Text(
                       '${goal.emoji} ${goal.name}',
+
                       style: const TextStyle(
-                        fontWeight: FontWeight.w700,
+                        fontWeight:
+                            FontWeight.w700,
                       ),
                     ),
 
@@ -180,6 +208,7 @@ class _SavingsPageState extends State<SavingsPage> {
 
                     Text(
                       'Saldo: ${rupiah(goal.savedAmount)}',
+
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall,
@@ -188,34 +217,53 @@ class _SavingsPageState extends State<SavingsPage> {
                     const SizedBox(height: 20),
 
                     TextField(
-                      controller: amountController,
+                      controller:
+                          amountController,
+
                       autofocus: true,
-                      keyboardType: TextInputType.number,
+
+                      keyboardType:
+                          TextInputType.number,
+
                       inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
+                        FilteringTextInputFormatter
+                            .digitsOnly,
                       ],
+
                       onChanged: (_) {
                         updateDialog(() {});
                       },
-                      decoration: InputDecoration(
+
+                      decoration:
+                          InputDecoration(
                         labelText: 'Nominal',
                         prefixText: 'Rp ',
-                        prefixIcon: const Icon(
+
+                        prefixIcon:
+                            const Icon(
                           Icons.payments_outlined,
                         ),
-                        errorText: exceedsBalance
-                            ? 'Melebihi saldo tabungan'
-                            : null,
+
+                        errorText:
+                            exceedsBalance
+                                ? 'Melebihi saldo tabungan'
+                                : null,
                       ),
                     ),
 
                     const SizedBox(height: 14),
 
                     TextField(
-                      controller: noteController,
+                      controller:
+                          noteController,
+
                       maxLength: 100,
-                      decoration: const InputDecoration(
-                        labelText: 'Catatan (opsional)',
+
+                      decoration:
+                          const InputDecoration(
+                        labelText:
+                            'Catatan (opsional)',
+
                         prefixIcon: Icon(
                           Icons.edit_note_outlined,
                         ),
@@ -224,27 +272,39 @@ class _SavingsPageState extends State<SavingsPage> {
                   ],
                 ),
               ),
+
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(dialogContext).pop();
+                    Navigator.pop(
+                      dialogContext,
+                    );
                   },
+
                   child: const Text('Batal'),
                 ),
 
                 FilledButton(
-                  onPressed: valid
+                  onPressed: canSubmit
                       ? () {
-                          Navigator.of(dialogContext).pop(
+                          Navigator.pop(
+                            dialogContext,
+
                             _SavingsInput(
-                              amount: amount,
-                              note: noteController.text.trim(),
+                              amount,
+
+                              noteController
+                                  .text
+                                  .trim(),
                             ),
                           );
                         }
                       : null,
+
                   child: Text(
-                    isDeposit ? 'Setor' : 'Ambil',
+                    deposit
+                        ? 'Setor'
+                        : 'Ambil',
                   ),
                 ),
               ],
@@ -260,30 +320,44 @@ class _SavingsPageState extends State<SavingsPage> {
     return result;
   }
 
+  // ========================================
+  // SETOR / AMBIL MELALUI RIVERPOD
+  // ========================================
+
   Future<void> _changeBalance(
     SavingsGoal goal, {
-    required bool isDeposit,
+    required bool deposit,
   }) async {
-    if (widget.controller.isSaving || goal.isArchived) {
+    final state = ref.read(
+      savingsStateProvider,
+    );
+
+    if (state.isSaving || goal.isArchived) {
       return;
     }
 
     final input = await _askAmount(
       goal: goal,
-      isDeposit: isDeposit,
+      deposit: deposit,
     );
 
-    if (input == null || !mounted) return;
+    if (!mounted || input == null) {
+      return;
+    }
 
     try {
-      if (isDeposit) {
-        await widget.controller.addSavings(
+      final notifier = ref.read(
+        savingsStateProvider.notifier,
+      );
+
+      if (deposit) {
+        await notifier.addSavings(
           goal.id,
           input.amount,
           note: input.note,
         );
       } else {
-        await widget.controller.withdrawSavings(
+        await notifier.withdrawSavings(
           goal.id,
           input.amount,
           note: input.note,
@@ -292,23 +366,23 @@ class _SavingsPageState extends State<SavingsPage> {
 
       if (!mounted) return;
 
-      _showMessage(
-        isDeposit
+      _message(
+        deposit
             ? 'Berhasil menabung ${rupiah(input.amount)}'
             : 'Berhasil mengambil ${rupiah(input.amount)}',
       );
     } catch (error) {
       if (!mounted) return;
 
-      _showMessage(
+      _message(
         'Transaksi gagal: $error',
       );
     }
   }
 
-  // ===================================================
-  // AKSI ARSIP / RESTORE / HAPUS
-  // ===================================================
+  // ========================================
+  // HANDLE ACTION
+  // ========================================
 
   Future<void> _handleAction(
     _GoalAction action,
@@ -325,43 +399,72 @@ class _SavingsPageState extends State<SavingsPage> {
     }
 
     try {
+      final notifier = ref.read(
+        savingsStateProvider.notifier,
+      );
+
       if (action == _GoalAction.archive) {
-        await widget.controller.archiveGoal(goal.id);
+        await notifier.archiveGoal(
+          goal.id,
+        );
 
         if (!mounted) return;
 
-        _showMessage('Kantong berhasil diarsipkan.');
-      } else if (action == _GoalAction.restore) {
-        await widget.controller.restoreGoal(goal.id);
+        _message(
+          'Kantong berhasil diarsipkan.',
+        );
+      } else if (action ==
+          _GoalAction.restore) {
+        await notifier.restoreGoal(
+          goal.id,
+        );
 
         if (!mounted) return;
 
-        _showMessage('Kantong berhasil dipulihkan.');
+        _message(
+          'Kantong berhasil dipulihkan.',
+        );
       }
     } catch (error) {
       if (!mounted) return;
 
-      _showMessage(
+      _message(
         'Gagal memperbarui kantong: $error',
       );
     }
   }
 
-  Future<void> _confirmDelete(SavingsGoal goal) async {
-    final confirmed = await showDialog<bool>(
+  // ========================================
+  // DELETE GOAL
+  // ========================================
+
+  Future<void> _confirmDelete(
+    SavingsGoal goal,
+  ) async {
+    final confirmed =
+        await showDialog<bool>(
       context: context,
+
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Hapus Kantong?'),
+          title: const Text(
+            'Hapus Kantong?',
+          ),
+
           content: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
+
             crossAxisAlignment:
                 CrossAxisAlignment.start,
+
             children: [
               Text(
                 '${goal.emoji} ${goal.name}',
+
                 style: const TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
 
@@ -384,15 +487,23 @@ class _SavingsPageState extends State<SavingsPage> {
               const Text(
                 'Uang di rekening bank sebenarnya '
                 'tidak terpengaruh.',
-                style: TextStyle(fontSize: 12),
+
+                style: TextStyle(
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
+
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext, false);
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
               },
+
               child: const Text('Batal'),
             ),
 
@@ -400,9 +511,14 @@ class _SavingsPageState extends State<SavingsPage> {
               style: FilledButton.styleFrom(
                 backgroundColor: _red,
               ),
+
               onPressed: () {
-                Navigator.pop(dialogContext, true);
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
               },
+
               child: const Text('Hapus'),
             ),
           ],
@@ -410,15 +526,18 @@ class _SavingsPageState extends State<SavingsPage> {
       },
     );
 
-    if (!mounted || confirmed != true) return;
+    if (!mounted || confirmed != true) {
+      return;
+    }
 
     try {
-      final deleted =
-          await widget.controller.deleteGoal(goal.id);
+      final deleted = await ref
+          .read(savingsStateProvider.notifier)
+          .deleteGoal(goal.id);
 
       if (!mounted) return;
 
-      _showMessage(
+      _message(
         deleted
             ? 'Kantong berhasil dihapus.'
             : 'Kantong tidak ditemukan.',
@@ -426,343 +545,15 @@ class _SavingsPageState extends State<SavingsPage> {
     } catch (error) {
       if (!mounted) return;
 
-      _showMessage('Gagal menghapus: $error');
+      _message(
+        'Gagal menghapus: $error',
+      );
     }
   }
 
-  // ===================================================
-  // HALAMAN UTAMA
-  // ===================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final controller = widget.controller;
-        final scheme = Theme.of(context).colorScheme;
-
-        final goals = _filter == _SavingsFilter.active
-            ? controller.activeGoals
-            : controller.archivedGoals;
-
-        final initialLoading =
-            controller.isLoading && !controller.hasLoaded;
-
-        final initialError =
-            controller.hasError && !controller.hasLoaded;
-
-        return Scaffold(
-          backgroundColor: scheme.surface,
-          appBar: AppBar(
-            title: const Text(
-              'Kantong Tabungan',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Perbarui',
-                onPressed: controller.isLoading
-                    ? null
-                    : controller.refresh,
-                icon: const Icon(
-                  Icons.refresh_rounded,
-                ),
-              ),
-            ],
-          ),
-          floatingActionButton:
-              FloatingActionButton.extended(
-            onPressed: controller.isSaving
-                ? null
-                : widget.onCreateGoal,
-            backgroundColor: _green,
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Kantong Baru'),
-          ),
-          body: RefreshIndicator(
-            onRefresh: controller.refresh,
-            color: _green,
-            child: CustomScrollView(
-              physics:
-                  const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      18,
-                      14,
-                      18,
-                      4,
-                    ),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tabungan Saya',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        _summaryCard(controller),
-
-                        const SizedBox(height: 26),
-
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Kantong Kamu',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      fontWeight:
-                                          FontWeight.w800,
-                                    ),
-                              ),
-                            ),
-
-                            IconButton.filledTonal(
-                              tooltip: 'Tambah kantong',
-                              onPressed: widget.onCreateGoal,
-                              icon: const Icon(
-                                Icons.add_rounded,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        _filterWidget(controller),
-
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (controller.error != null)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 18,
-                        vertical: 8,
-                      ),
-                      child: _errorBanner(
-                        controller.error!,
-                      ),
-                    ),
-                  ),
-
-                if (initialLoading)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (initialError)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _errorState(),
-                  )
-                else if (goals.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _emptyState(),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(
-                      18,
-                      4,
-                      18,
-                      110,
-                    ),
-                    sliver: SliverList.builder(
-                      itemCount: goals.length,
-                      itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(
-                            bottom: 13,
-                          ),
-                          child: _goalCard(goals[index]),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ===================================================
-  // KARTU RINGKASAN TOTAL
-  // ===================================================
-
-  Widget _summaryCard(SavingsController controller) {
-    final summary = controller.summary;
-
-    final progress =
-        summary.progress.clamp(0.0, 1.0).toDouble();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
-        gradient: const LinearGradient(
-          colors: [
-            _darkGreen,
-            _green,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _darkGreen.withValues(alpha: 0.16),
-            blurRadius: 20,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.account_balance_wallet_outlined,
-                color: Colors.white70,
-                size: 20,
-              ),
-
-              SizedBox(width: 8),
-
-              Text(
-                'Total Tabungan',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 13),
-
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              rupiah(summary.totalSaved),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 31,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 7),
-
-          Text(
-            'Target ${rupiah(summary.totalTarget)}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-          ),
-
-          const SizedBox(height: 23),
-
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Progress',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-
-              Text(
-                '${summary.progressPercent.toStringAsFixed(1)}%',
-                style: const TextStyle(
-                  color: _mint,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 9),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: Colors.white24,
-              color: _mint,
-            ),
-          ),
-
-          const SizedBox(height: 23),
-
-          const Divider(color: Colors.white24),
-
-          const SizedBox(height: 12),
-
-          Row(
-            children: [
-              Expanded(
-                child: _summaryMetric(
-                  Icons.savings_outlined,
-                  '${summary.activeGoals}',
-                  'Kantong Aktif',
-                ),
-              ),
-
-              Container(
-                height: 38,
-                width: 1,
-                color: Colors.white24,
-              ),
-
-              Expanded(
-                child: _summaryMetric(
-                  Icons.emoji_events_outlined,
-                  '${summary.completedGoals}',
-                  'Target Tercapai',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+  // ========================================
+  // SUMMARY METRIC
+  // ========================================
 
   Widget _summaryMetric(
     IconData icon,
@@ -772,7 +563,9 @@ class _SavingsPageState extends State<SavingsPage> {
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
           children: [
             Icon(
               icon,
@@ -784,6 +577,7 @@ class _SavingsPageState extends State<SavingsPage> {
 
             Text(
               value,
+
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -798,6 +592,7 @@ class _SavingsPageState extends State<SavingsPage> {
         Text(
           label,
           textAlign: TextAlign.center,
+
           style: const TextStyle(
             color: Colors.white70,
             fontSize: 11,
@@ -807,124 +602,585 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  // ===================================================
-  // FILTER AKTIF / ARSIP
-  // ===================================================
+  // ========================================
+  // SUMMARY CARD
+  // ========================================
 
-  Widget _filterWidget(SavingsController controller) {
+  Widget _summaryCard(
+    SavingsViewState state,
+  ) {
+    final summary = state.summary;
+
+    return Container(
+      width: double.infinity,
+
+      padding: const EdgeInsets.all(22),
+
+      decoration: BoxDecoration(
+        borderRadius:
+            BorderRadius.circular(26),
+
+        gradient:
+            const LinearGradient(
+          colors: [
+            _darkGreen,
+            _green,
+          ],
+
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+
+        boxShadow: [
+          BoxShadow(
+            color: _darkGreen.withValues(
+              alpha: 0.16,
+            ),
+
+            blurRadius: 20,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons
+                    .account_balance_wallet_outlined,
+
+                color: Colors.white70,
+                size: 20,
+              ),
+
+              SizedBox(width: 8),
+
+              Text(
+                'Total Tabungan',
+
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 13),
+
+          FittedBox(
+            fit: BoxFit.scaleDown,
+
+            alignment:
+                Alignment.centerLeft,
+
+            child: Text(
+              rupiah(summary.totalSaved),
+
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 31,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          Text(
+            'Target ${rupiah(summary.totalTarget)}',
+
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+            ),
+          ),
+
+          const SizedBox(height: 23),
+
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Progress',
+
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
+              Text(
+                '${summary.progressPercent.toStringAsFixed(1)}%',
+
+                style: const TextStyle(
+                  color: _mint,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 9),
+
+          ClipRRect(
+            borderRadius:
+                BorderRadius.circular(20),
+
+            child: LinearProgressIndicator(
+              value: summary.progress
+                  .clamp(0.0, 1.0)
+                  .toDouble(),
+
+              minHeight: 10,
+
+              backgroundColor:
+                  Colors.white24,
+
+              color: _mint,
+            ),
+          ),
+
+          const SizedBox(height: 23),
+
+          const Divider(
+            color: Colors.white24,
+          ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: _summaryMetric(
+                  Icons.savings_outlined,
+
+                  '${summary.activeGoals}',
+
+                  'Kantong Aktif',
+                ),
+              ),
+
+              Container(
+                height: 38,
+                width: 1,
+                color: Colors.white24,
+              ),
+
+              Expanded(
+                child: _summaryMetric(
+                  Icons
+                      .emoji_events_outlined,
+
+                  '${summary.completedGoals}',
+
+                  'Target Tercapai',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================
+  // FILTER ACTIVE / ARCHIVED
+  // ========================================
+
+  Widget _filterWidget(
+    SavingsViewState state,
+  ) {
     return SizedBox(
       width: double.infinity,
-      child: SegmentedButton<_SavingsFilter>(
+
+      child: SegmentedButton<
+          _SavingsFilter>(
         showSelectedIcon: false,
+
         segments: [
-          ButtonSegment<_SavingsFilter>(
+          ButtonSegment(
             value: _SavingsFilter.active,
+
             icon: const Icon(
               Icons.wallet_outlined,
               size: 18,
             ),
+
             label: Text(
-              'Aktif (${controller.activeGoalCount})',
+              'Aktif (${state.activeGoals.length})',
             ),
           ),
 
-          ButtonSegment<_SavingsFilter>(
-            value: _SavingsFilter.archived,
+          ButtonSegment(
+            value:
+                _SavingsFilter.archived,
+
             icon: const Icon(
               Icons.archive_outlined,
               size: 18,
             ),
+
             label: Text(
-              'Arsip (${controller.archivedGoalCount})',
+              'Arsip (${state.archivedGoals.length})',
             ),
           ),
         ],
+
         selected: {_filter},
-        onSelectionChanged: (selection) {
-          if (selection.isEmpty) return;
+
+        onSelectionChanged:
+            (selection) {
+          if (selection.isEmpty) {
+            return;
+          }
 
           setState(() {
-            _filter = selection.first;
+            _filter =
+                selection.first;
           });
         },
       ),
     );
   }
 
-  // ===================================================
-  // KARTU KANTONG
-  // ===================================================
+  // ========================================
+  // STATUS BADGE
+  // ========================================
 
-  Widget _goalCard(SavingsGoal goal) {
+  Widget _statusBadge(
+    String label,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+
+      decoration: BoxDecoration(
+        color: color.withValues(
+          alpha: 0.12,
+        ),
+
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+
+      child: Text(
+        label,
+
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  // ========================================
+  // DEADLINE BADGE
+  // ========================================
+
+  Widget _deadlineBadge(
+    SavingsGoal goal,
+  ) {
+    final days = goal.daysRemaining;
+
+    String label;
+
+    if (goal.isCompleted) {
+      label = 'Target tercapai';
+    } else if (days == null) {
+      label = 'Tanpa deadline';
+    } else if (days < 0) {
+      label =
+          'Lewat ${days.abs()} hari';
+    } else if (days == 0) {
+      label = 'Hari ini';
+    } else {
+      label = '$days hari lagi';
+    }
+
+    final scheme =
+        Theme.of(context).colorScheme;
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+
+      decoration: BoxDecoration(
+        color: scheme
+            .surfaceContainerHighest,
+
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+
+        children: [
+          Icon(
+            Icons.calendar_today_outlined,
+            size: 12,
+            color:
+                scheme.onSurfaceVariant,
+          ),
+
+          const SizedBox(width: 5),
+
+          Text(
+            label,
+
+            style: TextStyle(
+              fontSize: 11,
+              color:
+                  scheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================
+  // GOAL MENU
+  // ========================================
+
+  Widget _goalMenu(
+    SavingsGoal goal,
+  ) {
+    return PopupMenuButton<
+        _GoalAction>(
+      tooltip: 'Opsi kantong',
+
+      icon: const Icon(
+        Icons.more_vert_rounded,
+      ),
+
+      onSelected: (action) {
+        _handleAction(action, goal);
+      },
+
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _GoalAction.view,
+
+          child: ListTile(
+            dense: true,
+            contentPadding:
+                EdgeInsets.zero,
+
+            leading: Icon(
+              Icons.visibility_outlined,
+            ),
+
+            title:
+                Text('Lihat Detail'),
+          ),
+        ),
+
+        if (!goal.isArchived)
+          const PopupMenuItem(
+            value:
+                _GoalAction.archive,
+
+            child: ListTile(
+              dense: true,
+              contentPadding:
+                  EdgeInsets.zero,
+
+              leading: Icon(
+                Icons.archive_outlined,
+              ),
+
+              title:
+                  Text('Arsipkan'),
+            ),
+          ),
+
+        if (goal.isArchived)
+          const PopupMenuItem(
+            value:
+                _GoalAction.restore,
+
+            child: ListTile(
+              dense: true,
+              contentPadding:
+                  EdgeInsets.zero,
+
+              leading: Icon(
+                Icons.unarchive_outlined,
+              ),
+
+              title:
+                  Text('Pulihkan'),
+            ),
+          ),
+
+        const PopupMenuDivider(),
+
+        const PopupMenuItem(
+          value:
+              _GoalAction.delete,
+
+          child: ListTile(
+            dense: true,
+            contentPadding:
+                EdgeInsets.zero,
+
+            leading: Icon(
+              Icons.delete_outline_rounded,
+              color: _red,
+            ),
+
+            title: Text(
+              'Hapus',
+
+              style: TextStyle(
+                color: _red,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ========================================
+  // GOAL CARD
+  // ========================================
+
+  Widget _goalCard(
+    SavingsGoal goal,
+    bool isSaving,
+  ) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    final statusColor = goal.isCompleted
-        ? _green
-        : goal.isOverdue
-            ? _amber
-            : scheme.primary;
+    final statusColor =
+        goal.isCompleted
+            ? _green
+            : goal.isOverdue
+                ? _amber
+                : scheme.primary;
 
     return Material(
-      color: scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(23),
+      color:
+          scheme.surfaceContainerLow,
+
+      borderRadius:
+          BorderRadius.circular(23),
+
       child: InkWell(
-        borderRadius: BorderRadius.circular(23),
-        onTap: () => widget.onOpenGoal(goal.id),
+        borderRadius:
+            BorderRadius.circular(23),
+
+        onTap: () {
+          widget.onOpenGoal(goal.id);
+        },
+
         child: Container(
-          padding: const EdgeInsets.all(17),
+          padding:
+              const EdgeInsets.all(17),
+
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(23),
+            borderRadius:
+                BorderRadius.circular(23),
+
             border: Border.all(
-              color: scheme.outlineVariant,
+              color:
+                  scheme.outlineVariant,
             ),
           ),
+
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+
             children: [
               // HEADER
-
               Row(
                 children: [
                   Container(
-                    height: 56,
                     width: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
+                    height: 56,
+
+                    alignment:
+                        Alignment.center,
+
+                    decoration:
+                        BoxDecoration(
+                      color: scheme
+                          .primaryContainer,
+
                       borderRadius:
-                          BorderRadius.circular(17),
+                          BorderRadius
+                              .circular(17),
                     ),
+
                     child: Text(
                       goal.emoji,
-                      style: const TextStyle(
+
+                      style:
+                          const TextStyle(
                         fontSize: 28,
                       ),
                     ),
                   ),
 
-                  const SizedBox(width: 12),
+                  const SizedBox(
+                    width: 12,
+                  ),
 
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
+
                       children: [
                         Text(
                           goal.name,
+
                           maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium
+
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
+
+                          style: theme
+                              .textTheme
+                              .titleMedium
                               ?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                                fontWeight:
+                                    FontWeight
+                                        .w800,
+                              ),
                         ),
 
-                        const SizedBox(height: 5),
+                        const SizedBox(
+                          height: 5,
+                        ),
 
                         Text(
                           'Target ${rupiah(goal.targetAmount)}',
-                          style: theme.textTheme.bodySmall,
+
+                          style: theme
+                              .textTheme
+                              .bodySmall,
                         ),
                       ],
                     ),
@@ -934,128 +1190,187 @@ class _SavingsPageState extends State<SavingsPage> {
                 ],
               ),
 
-              const SizedBox(height: 19),
+              const SizedBox(
+                height: 19,
+              ),
 
               // NOMINAL DAN PERSENTASE
-
               Row(
                 crossAxisAlignment:
                     CrossAxisAlignment.end,
+
                 children: [
                   Expanded(
                     child: Text(
-                      rupiah(goal.savedAmount),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w900,
+                      rupiah(
+                        goal.savedAmount,
                       ),
+
+                      maxLines: 1,
+
+                      overflow:
+                          TextOverflow.ellipsis,
+
+                      style: theme
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                            fontSize: 23,
+                            fontWeight:
+                                FontWeight.w900,
+                          ),
                     ),
                   ),
 
-                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 8,
+                  ),
 
                   Text(
                     '${goal.progressPercent.toStringAsFixed(1)}%',
-                    style: const TextStyle(
+
+                    style:
+                        const TextStyle(
                       color: _green,
                       fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontWeight:
+                          FontWeight.w800,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 13),
+              const SizedBox(
+                height: 13,
+              ),
 
+              // PROGRESS
               ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: LinearProgressIndicator(
+                borderRadius:
+                    BorderRadius.circular(
+                  20,
+                ),
+
+                child:
+                    LinearProgressIndicator(
                   value: goal.progress
                       .clamp(0.0, 1.0)
                       .toDouble(),
+
                   minHeight: 9,
                   color: _green,
-                  backgroundColor:
-                      scheme.surfaceContainerHighest,
+
+                  backgroundColor: scheme
+                      .surfaceContainerHighest,
                 ),
               ),
 
-              const SizedBox(height: 13),
+              const SizedBox(
+                height: 13,
+              ),
 
               // STATUS DAN DEADLINE
-
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
+
                 children: [
                   _statusBadge(
                     goal.statusLabel,
                     statusColor,
                   ),
 
-                  if (goal.deadline != null)
+                  if (goal.deadline !=
+                      null)
                     _deadlineBadge(goal),
                 ],
               ),
 
-              const SizedBox(height: 17),
+              const SizedBox(
+                height: 17,
+              ),
 
-              // AKSI CEPAT
-
+              // ACTIONS
               if (!goal.isArchived)
                 Row(
                   children: [
                     Expanded(
-                      child: FilledButton.icon(
-                        onPressed:
-                            widget.controller.isSaving
-                                ? null
-                                : () => _changeBalance(
-                                      goal,
-                                      isDeposit: true,
-                                    ),
-                        icon: const Icon(
+                      child:
+                          FilledButton.icon(
+                        onPressed: isSaving
+                            ? null
+                            : () {
+                                _changeBalance(
+                                  goal,
+                                  deposit:
+                                      true,
+                                );
+                              },
+
+                        icon:
+                            const Icon(
                           Icons.add_rounded,
                           size: 19,
                         ),
-                        label: const Text('Setor'),
+
+                        label:
+                            const Text(
+                          'Setor',
+                        ),
                       ),
                     ),
 
-                    const SizedBox(width: 10),
+                    const SizedBox(
+                      width: 10,
+                    ),
 
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed:
-                            widget.controller.isSaving ||
-                                    goal.savedAmount <= 0
-                                ? null
-                                : () => _changeBalance(
-                                      goal,
-                                      isDeposit: false,
-                                    ),
-                        icon: const Icon(
-                          Icons.remove_rounded,
+                      child:
+                          OutlinedButton.icon(
+                        onPressed: isSaving ||
+                                goal.savedAmount <=
+                                    0
+                            ? null
+                            : () {
+                                _changeBalance(
+                                  goal,
+                                  deposit:
+                                      false,
+                                );
+                              },
+
+                        icon:
+                            const Icon(
+                          Icons
+                              .remove_rounded,
                           size: 19,
                         ),
-                        label: const Text('Ambil'),
+
+                        label:
+                            const Text(
+                          'Ambil',
+                        ),
                       ),
                     ),
                   ],
                 )
               else
                 SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
+                  width:
+                      double.infinity,
+
+                  child:
+                      OutlinedButton.icon(
                     onPressed: () {
-                      widget.onOpenGoal(goal.id);
+                      widget.onOpenGoal(
+                        goal.id,
+                      );
                     },
+
                     icon: const Icon(
                       Icons.history_rounded,
                     ),
+
                     label: const Text(
                       'Lihat Detail & Riwayat',
                     ),
@@ -1068,191 +1383,53 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  // ===================================================
-  // BADGE STATUS
-  // ===================================================
-
-  Widget _statusBadge(
-    String label,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-
-  Widget _deadlineBadge(SavingsGoal goal) {
-    final days = goal.daysRemaining;
-
-    String label;
-
-    if (goal.isCompleted) {
-      label = 'Target tercapai';
-    } else if (days == null) {
-      label = 'Tanpa deadline';
-    } else if (days < 0) {
-      label = 'Lewat ${days.abs()} hari';
-    } else if (days == 0) {
-      label = 'Hari ini';
-    } else {
-      label = '$days hari lagi';
-    }
-
-    final scheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.calendar_today_outlined,
-            size: 12,
-            color: scheme.onSurfaceVariant,
-          ),
-
-          const SizedBox(width: 5),
-
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: scheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ===================================================
-  // MENU KANTONG
-  // ===================================================
-
-  Widget _goalMenu(SavingsGoal goal) {
-    return PopupMenuButton<_GoalAction>(
-      tooltip: 'Opsi kantong',
-      icon: const Icon(
-        Icons.more_vert_rounded,
-      ),
-      onSelected: (action) {
-        _handleAction(action, goal);
-      },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: _GoalAction.view,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.visibility_outlined,
-            ),
-            title: Text('Lihat Detail'),
-          ),
-        ),
-
-        if (!goal.isArchived)
-          const PopupMenuItem(
-            value: _GoalAction.archive,
-            child: ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.archive_outlined,
-              ),
-              title: Text('Arsipkan'),
-            ),
-          ),
-
-        if (goal.isArchived)
-          const PopupMenuItem(
-            value: _GoalAction.restore,
-            child: ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                Icons.unarchive_outlined,
-              ),
-              title: Text('Pulihkan'),
-            ),
-          ),
-
-        const PopupMenuDivider(),
-
-        const PopupMenuItem(
-          value: _GoalAction.delete,
-          child: ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.delete_outline_rounded,
-              color: _red,
-            ),
-            title: Text(
-              'Hapus',
-              style: TextStyle(color: _red),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ===================================================
+  // ========================================
   // EMPTY STATE
-  // ===================================================
+  // ========================================
 
   Widget _emptyState() {
-    final scheme = Theme.of(context).colorScheme;
-    final archived =
-        _filter == _SavingsFilter.archived;
+    final scheme =
+        Theme.of(context).colorScheme;
+
+    final archived = _filter ==
+        _SavingsFilter.archived;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
+        padding:
+            const EdgeInsets.fromLTRB(
           24,
           24,
           24,
           100,
         ),
+
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
           children: [
             Container(
               width: 96,
               height: 96,
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer,
+
+              decoration:
+                  BoxDecoration(
+                color:
+                    scheme.primaryContainer,
+
                 shape: BoxShape.circle,
               ),
+
               child: Icon(
                 archived
                     ? Icons.archive_outlined
                     : Icons.savings_outlined,
+
                 size: 46,
-                color: scheme.onPrimaryContainer,
+
+                color: scheme
+                    .onPrimaryContainer,
               ),
             ),
 
@@ -1262,10 +1439,15 @@ class _SavingsPageState extends State<SavingsPage> {
               archived
                   ? 'Belum Ada Arsip'
                   : 'Mulai Menabung! 🎯',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
+
+              textAlign:
+                  TextAlign.center,
+
+              style:
+                  const TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
               ),
             ),
 
@@ -1277,20 +1459,33 @@ class _SavingsPageState extends State<SavingsPage> {
                       'akan muncul di sini.'
                   : 'Buat kantong pertamamu '
                       'untuk mencapai target keuangan.',
-              textAlign: TextAlign.center,
+
+              textAlign:
+                  TextAlign.center,
+
               style: TextStyle(
                 fontSize: 13,
-                color: scheme.onSurfaceVariant,
+                color: scheme
+                    .onSurfaceVariant,
               ),
             ),
 
             if (!archived) ...[
-              const SizedBox(height: 22),
+              const SizedBox(
+                height: 22,
+              ),
 
               FilledButton.icon(
-                onPressed: widget.onCreateGoal,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Buat Kantong'),
+                onPressed:
+                    widget.onCreateGoal,
+
+                icon: const Icon(
+                  Icons.add_rounded,
+                ),
+
+                label: const Text(
+                  'Buat Kantong',
+                ),
               ),
             ],
           ],
@@ -1299,41 +1494,67 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  // ===================================================
+  // ========================================
   // ERROR STATE
-  // ===================================================
+  // ========================================
 
   Widget _errorState() {
-    final scheme = Theme.of(context).colorScheme;
+    final scheme =
+        Theme.of(context).colorScheme;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding:
+            const EdgeInsets.all(24),
+
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment:
+              MainAxisAlignment.center,
+
           children: [
             Icon(
-              Icons.error_outline_rounded,
+              Icons
+                  .error_outline_rounded,
+
               size: 54,
               color: scheme.error,
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(
+              height: 15,
+            ),
 
             const Text(
               'Gagal Memuat Kantong',
+
               style: TextStyle(
-                fontWeight: FontWeight.w800,
+                fontWeight:
+                    FontWeight.w800,
+
                 fontSize: 18,
               ),
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(
+              height: 15,
+            ),
 
             OutlinedButton.icon(
-              onPressed: widget.controller.loadGoals,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Coba Lagi'),
+              onPressed: () {
+                ref
+                    .read(
+                      savingsStateProvider
+                          .notifier,
+                    )
+                    .loadGoals();
+              },
+
+              icon: const Icon(
+                Icons.refresh_rounded,
+              ),
+
+              label:
+                  const Text('Coba Lagi'),
             ),
           ],
         ),
@@ -1341,29 +1562,50 @@ class _SavingsPageState extends State<SavingsPage> {
     );
   }
 
-  Widget _errorBanner(String message) {
-    final scheme = Theme.of(context).colorScheme;
+  // ========================================
+  // ERROR BANNER
+  // ========================================
+
+  Widget _errorBanner(
+    String message,
+  ) {
+    final scheme =
+        Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.errorContainer,
-        borderRadius: BorderRadius.circular(16),
+      padding:
+          const EdgeInsets.all(12),
+
+      decoration:
+          BoxDecoration(
+        color:
+            scheme.errorContainer,
+
+        borderRadius:
+            BorderRadius.circular(16),
       ),
+
       child: Row(
         children: [
           Icon(
             Icons.info_outline_rounded,
-            color: scheme.onErrorContainer,
+
+            color:
+                scheme.onErrorContainer,
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(
+            width: 10,
+          ),
 
           Expanded(
             child: Text(
               message,
+
               style: TextStyle(
-                color: scheme.onErrorContainer,
+                color: scheme
+                    .onErrorContainer,
+
                 fontSize: 12,
               ),
             ),
@@ -1371,14 +1613,321 @@ class _SavingsPageState extends State<SavingsPage> {
 
           IconButton(
             tooltip: 'Tutup pesan',
-            onPressed: widget.controller.clearError,
+
+            onPressed: () {
+              ref
+                  .read(
+                    savingsStateProvider
+                        .notifier,
+                  )
+                  .clearError();
+            },
+
             icon: Icon(
               Icons.close_rounded,
+
               size: 18,
-              color: scheme.onErrorContainer,
+
+              color: scheme
+                  .onErrorContainer,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ========================================
+  // MAIN BUILD
+  // ========================================
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    // Riverpod memantau state tabungan.
+    final state = ref.watch(
+      savingsStateProvider,
+    );
+
+    final scheme =
+        Theme.of(context).colorScheme;
+
+    // Filter aktif atau arsip.
+    final goals =
+        _filter == _SavingsFilter.active
+            ? state.activeGoals
+            : state.archivedGoals;
+
+    final initialLoading =
+        state.isLoading &&
+        !state.hasLoaded;
+
+    final initialError =
+        state.error != null &&
+        !state.hasLoaded;
+
+    return Scaffold(
+      backgroundColor:
+          scheme.surface,
+
+      appBar: AppBar(
+        title: const Text(
+          'Kantong Tabungan',
+
+          style: TextStyle(
+            fontWeight:
+                FontWeight.w800,
+          ),
+        ),
+
+        actions: [
+          IconButton(
+            tooltip: 'Perbarui',
+
+            onPressed: state.isLoading
+                ? null
+                : () {
+                    ref
+                        .read(
+                          savingsStateProvider
+                              .notifier,
+                        )
+                        .refresh();
+                  },
+
+            icon: const Icon(
+              Icons.refresh_rounded,
+            ),
+          ),
+        ],
+      ),
+
+      // ====================================
+      // FLOATING ACTION BUTTON
+      // ====================================
+
+      floatingActionButton:
+          FloatingActionButton.extended(
+        onPressed: state.isSaving
+            ? null
+            : widget.onCreateGoal,
+
+        backgroundColor: _green,
+        foregroundColor: Colors.white,
+
+        icon: const Icon(
+          Icons.add_rounded,
+        ),
+
+        label: const Text(
+          'Kantong Baru',
+        ),
+      ),
+
+      // ====================================
+      // BODY
+      // ====================================
+
+      body: RefreshIndicator(
+        color: _green,
+
+        onRefresh: () {
+          return ref
+              .read(
+                savingsStateProvider.notifier,
+              )
+              .refresh();
+        },
+
+        child: CustomScrollView(
+          physics:
+              const AlwaysScrollableScrollPhysics(),
+
+          slivers: [
+            // ==============================
+            // HEADER & SUMMARY
+            // ==============================
+
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  18,
+                  14,
+                  18,
+                  4,
+                ),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+
+                  children: [
+                    Text(
+                      'Tabungan Saya',
+
+                      style: Theme.of(
+                        context,
+                      )
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(
+                            fontWeight:
+                                FontWeight.w800,
+                          ),
+                    ),
+
+                    const SizedBox(
+                      height: 16,
+                    ),
+
+                    _summaryCard(state),
+
+                    const SizedBox(
+                      height: 26,
+                    ),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Kantong Kamu',
+
+                            style: Theme.of(
+                              context,
+                            )
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  fontWeight:
+                                      FontWeight
+                                          .w800,
+                                ),
+                          ),
+                        ),
+
+                        IconButton.filledTonal(
+                          tooltip:
+                              'Tambah kantong',
+
+                          onPressed: state
+                                  .isSaving
+                              ? null
+                              : widget
+                                  .onCreateGoal,
+
+                          icon: const Icon(
+                            Icons.add_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+
+                    _filterWidget(state),
+
+                    const SizedBox(
+                      height: 12,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ==============================
+            // ERROR BANNER
+            // ==============================
+
+            if (state.error != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
+
+                  child: _errorBanner(
+                    state.error!,
+                  ),
+                ),
+              ),
+
+            // ==============================
+            // LOADING
+            // ==============================
+
+            if (initialLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+
+                child: Center(
+                  child:
+                      CircularProgressIndicator(),
+                ),
+              )
+
+            // ==============================
+            // ERROR STATE
+            // ==============================
+
+            else if (initialError)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _errorState(),
+              )
+
+            // ==============================
+            // EMPTY STATE
+            // ==============================
+
+            else if (goals.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _emptyState(),
+              )
+
+            // ==============================
+            // GOAL LIST
+            // ==============================
+
+            else
+              SliverPadding(
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  18,
+                  4,
+                  18,
+                  110,
+                ),
+
+                sliver: SliverList.builder(
+                  itemCount: goals.length,
+
+                  itemBuilder: (
+                    context,
+                    index,
+                  ) {
+                    return Padding(
+                      padding:
+                          const EdgeInsets.only(
+                        bottom: 13,
+                      ),
+
+                      child: _goalCard(
+                        goals[index],
+                        state.isSaving,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
