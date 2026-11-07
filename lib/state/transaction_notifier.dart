@@ -4,15 +4,12 @@ import '../data/transaction_repository.dart';
 import '../models/finance_transaction.dart';
 import 'transaction_controller.dart';
 
-// =====================================================
-// FINPLAN - TRANSACTION RIVERPOD
-// =====================================================
+// ==========================================
+// LEGACY CONTROLLER PROVIDER
+// ==========================================
 
-// Menghubungkan Riverpod dengan TransactionController lama.
-//
-// Controller lama tetap dipertahankan selama migrasi
-// agar database SQLite dan transaksi pengguna tidak berubah.
-
+/// Menggunakan TransactionController yang
+/// sudah diinisialisasi melalui ProviderScope.
 final legacyTransactionControllerProvider =
     Provider<TransactionController>(
   (ref) => throw StateError(
@@ -20,9 +17,9 @@ final legacyTransactionControllerProvider =
   ),
 );
 
-// =====================================================
-// TRANSACTION STATE
-// =====================================================
+// ==========================================
+// TRANSACTION VIEW STATE
+// ==========================================
 
 class TransactionViewState {
   const TransactionViewState({
@@ -52,60 +49,138 @@ class TransactionViewState {
 
   final String? error;
 
-  // =================================================
-  // GETTERS
-  // =================================================
-
   int get totalIncome => summary.totalIncome;
 
   int get totalExpense => summary.totalExpense;
 
   int get netAmount => summary.netAmount;
 
-  int get transactionCount => summary.transactionCount;
+  int get transactionCount =>
+      summary.transactionCount;
 
-  // =================================================
-  // MEMBACA DATA DARI CONTROLLER LAMA
-  // =================================================
+  // ========================================
+  // CREATE STATE FROM CONTROLLER
+  // ========================================
 
   factory TransactionViewState.fromController(
     TransactionController controller,
   ) {
     return TransactionViewState(
-      transactions: List<FinanceTransaction>.unmodifiable(
+      transactions:
+          List<FinanceTransaction>.unmodifiable(
         controller.transactions,
       ),
+
       summary: controller.summary,
+
       selectedMonth: controller.selectedMonth,
+
       isLoading: controller.isLoading,
+
       isLoadingMore: controller.isLoadingMore,
+
       isSaving: controller.isSaving,
+
       hasMore: controller.hasMore,
+
       error: controller.error,
     );
   }
 }
 
-// =====================================================
-// TRANSACTION PROVIDER
-// =====================================================
+// ==========================================
+// TRANSACTION STATE PROVIDER
+// ==========================================
 
 final transactionStateProvider =
-    NotifierProvider<TransactionNotifier, TransactionViewState>(
+    NotifierProvider<
+        TransactionNotifier,
+        TransactionViewState>(
   TransactionNotifier.new,
 );
 
-// =====================================================
+// ==========================================
+// MONTHLY TRANSACTION TRENDS PROVIDER
+// ==========================================
+
+/// Menampilkan tren transaksi 6 bulan.
+///
+/// Menggunakan data rekap dari SQLite.
+final monthlyTransactionTrendsProvider =
+    FutureProvider<List<MonthlyTransactionTrend>>(
+  (ref) async {
+    final trigger = ref.watch(
+      transactionStateProvider.select(
+        (state) => (
+          month: state.selectedMonth,
+          summary: state.summary,
+        ),
+      ),
+    );
+
+    return ref
+        .read(legacyTransactionControllerProvider)
+        .getMonthlyTrends(
+          endingMonth: trigger.month,
+          count: 6,
+        );
+  },
+);
+
+// ==========================================
+// MONTHLY EXPENSE CATEGORIES PROVIDER
+// ==========================================
+
+/// PROVIDER BARU
+///
+/// Mengambil seluruh pengeluaran berdasarkan
+/// kategori untuk bulan yang sedang dipilih.
+///
+/// Data berasal dari query SQLite langsung,
+/// sehingga tidak terpengaruh pagination.
+///
+/// Provider akan menghitung ulang ketika:
+/// - Bulan transaksi diganti
+/// - Transaksi ditambahkan
+/// - Transaksi diedit
+/// - Transaksi dihapus
+/// - Rekap transaksi diperbarui
+final monthlyExpenseCategoriesProvider =
+    FutureProvider<List<ExpenseCategorySummary>>(
+  (ref) async {
+    final trigger = ref.watch(
+      transactionStateProvider.select(
+        (state) => (
+          month: state.selectedMonth,
+          summary: state.summary,
+        ),
+      ),
+    );
+
+    return ref
+        .read(legacyTransactionControllerProvider)
+        .getMonthlyExpenseCategorySummary(
+          year: trigger.month.year,
+          month: trigger.month.month,
+        );
+  },
+);
+
+// ==========================================
 // TRANSACTION NOTIFIER
-// =====================================================
+// ==========================================
 
-class TransactionNotifier extends Notifier<TransactionViewState> {
-  TransactionController get _controller =>
-      ref.read(legacyTransactionControllerProvider);
+class TransactionNotifier
+    extends Notifier<TransactionViewState> {
+  TransactionController get _controller {
+    return ref.read(
+      legacyTransactionControllerProvider,
+    );
+  }
 
-  // =================================================
-  // INITIALIZATION
-  // =================================================
+  // ========================================
+  // BUILD
+  // ========================================
 
   @override
   TransactionViewState build() {
@@ -121,78 +196,82 @@ class TransactionNotifier extends Notifier<TransactionViewState> {
 
     controller.addListener(syncState);
 
-    ref.onDispose(() {
-      controller.removeListener(syncState);
-    });
+    ref.onDispose(
+      () => controller.removeListener(syncState),
+    );
 
     return TransactionViewState.fromController(
       controller,
     );
   }
 
-  // =================================================
+  // ========================================
   // LOAD TRANSACTIONS
-  // =================================================
+  // ========================================
 
   Future<void> loadTransactions() {
     return _controller.loadTransactions();
   }
 
-  // =================================================
+  // ========================================
   // REFRESH
-  // =================================================
+  // ========================================
 
   Future<void> refresh() {
     return _controller.refresh();
   }
 
-  // =================================================
-  // FILTER MONTH
-  // =================================================
+  // ========================================
+  // SELECT MONTH
+  // ========================================
 
   Future<void> selectMonth(DateTime month) {
     return _controller.selectMonth(month);
   }
 
-  // =================================================
-  // PAGINATION
-  // =================================================
+  // ========================================
+  // LOAD MORE
+  // ========================================
 
   Future<void> loadMore() {
     return _controller.loadMore();
   }
 
-  // =================================================
+  // ========================================
   // ADD TRANSACTION
-  // =================================================
+  // ========================================
 
   Future<int> addTransaction(
     FinanceTransaction transaction,
   ) {
-    return _controller.addTransaction(transaction);
+    return _controller.addTransaction(
+      transaction,
+    );
   }
 
-  // =================================================
+  // ========================================
   // UPDATE TRANSACTION
-  // =================================================
+  // ========================================
 
   Future<bool> updateTransaction(
     FinanceTransaction transaction,
   ) {
-    return _controller.updateTransaction(transaction);
+    return _controller.updateTransaction(
+      transaction,
+    );
   }
 
-  // =================================================
+  // ========================================
   // DELETE TRANSACTION
-  // =================================================
+  // ========================================
 
   Future<bool> deleteTransaction(int id) {
     return _controller.deleteTransaction(id);
   }
 
-  // =================================================
-  // GET TRANSACTION DETAIL
-  // =================================================
+  // ========================================
+  // GET TRANSACTION BY ID
+  // ========================================
 
   Future<FinanceTransaction?> getTransactionById(
     int id,
@@ -200,9 +279,9 @@ class TransactionNotifier extends Notifier<TransactionViewState> {
     return _controller.getTransactionById(id);
   }
 
-  // =================================================
+  // ========================================
   // ACCOUNT SUMMARY
-  // =================================================
+  // ========================================
 
   Future<TransactionSummary> getAccountSummary({
     required AccountType accountType,
@@ -218,9 +297,24 @@ class TransactionNotifier extends Notifier<TransactionViewState> {
     );
   }
 
-  // =================================================
+  // ========================================
+  // MONTHLY CATEGORY SUMMARY
+  // ========================================
+
+  Future<List<ExpenseCategorySummary>>
+      getMonthlyExpenseCategorySummary({
+    required int year,
+    required int month,
+  }) {
+    return _controller.getMonthlyExpenseCategorySummary(
+      year: year,
+      month: month,
+    );
+  }
+
+  // ========================================
   // CLEAR ERROR
-  // =================================================
+  // ========================================
 
   void clearError() {
     _controller.clearError();

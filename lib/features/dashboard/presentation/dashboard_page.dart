@@ -5,33 +5,48 @@ import '../../../core/money.dart';
 import '../../../models/finance_plan.dart';
 import '../../../state/finance_plan_notifier.dart';
 
+// DASHBOARD WIDGETS
+import '../../../widgets/transactions_overview_card.dart';
+import '../../../widgets/expense_budget_card.dart';
+import '../../../widgets/expanse_category_card.dart';
+import '../../../widgets/monthly_expense_trend_card.dart';
+import '../../../widgets/savings_overview_card.dart';
+
 import 'widgets/allocation_card.dart';
 
-// =====================================================
-// COLORS
-// =====================================================
+// ==========================================
+// FINPLAN COLORS
+// ==========================================
 
 const _darkGreen = Color(0xFF064E3B);
 const _green = Color(0xFF059669);
 const _muted = Color(0xFF84958C);
 const _softGreen = Color(0xFFE9F8F0);
 
-// =====================================================
+// ==========================================
 // DASHBOARD PAGE
-// =====================================================
+// ==========================================
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({
     super.key,
     required this.plan,
     required this.onOpenPlanner,
+    this.onOpenTransactions,
   });
 
   final FinancePlan plan;
+
   final VoidCallback onOpenPlanner;
+
+  final VoidCallback? onOpenTransactions;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // ======================================
+    // RIVERPOD FINANCE PLAN
+    // ======================================
+
     final current =
         ref.watch(financePlanProvider) ?? plan;
 
@@ -39,6 +54,9 @@ class DashboardPage extends ConsumerWidget {
 
     final positive =
         current.plannedDifference >= 0;
+
+    final openTransactions =
+        onOpenTransactions ?? onOpenPlanner;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -48,9 +66,9 @@ class DashboardPage extends ConsumerWidget {
         32,
       ),
       children: [
-        // ============================================
-        // HEADER
-        // ============================================
+        // ===================================
+        // 1. WELCOME HEADER
+        // ===================================
 
         Row(
           children: [
@@ -59,8 +77,7 @@ class DashboardPage extends ConsumerWidget {
               height: 47,
               decoration: BoxDecoration(
                 color: _softGreen,
-                borderRadius:
-                    BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: const Icon(
                 Icons.waving_hand_rounded,
@@ -114,9 +131,9 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 20),
 
-        // ============================================
-        // MONTHLY INCOME
-        // ============================================
+        // ===================================
+        // 2. MONTHLY INCOME CARD
+        // ===================================
 
         Container(
           padding: const EdgeInsets.all(22),
@@ -153,6 +170,7 @@ class DashboardPage extends ConsumerWidget {
                       fontSize: 13,
                     ),
                   ),
+
                   Icon(
                     Icons.account_balance_wallet_rounded,
                     color: Colors.white,
@@ -182,6 +200,10 @@ class DashboardPage extends ConsumerWidget {
               ),
 
               const SizedBox(height: 18),
+
+              // =============================
+              // FINANCIAL PLAN STATUS
+              // =============================
 
               Container(
                 padding: const EdgeInsets.all(13),
@@ -230,8 +252,7 @@ class DashboardPage extends ConsumerWidget {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w800,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -246,9 +267,9 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 17),
 
-        // ============================================
-        // MONTHLY SUMMARY
-        // ============================================
+        // ===================================
+        // 3. BUDGET SUMMARY
+        // ===================================
 
         Row(
           children: [
@@ -265,7 +286,7 @@ class DashboardPage extends ConsumerWidget {
             Expanded(
               child: _MetricCard(
                 icon: Icons.savings_outlined,
-                label: 'Tabungan',
+                label: 'Rencana Tabungan',
                 amount: current.savings,
               ),
             ),
@@ -274,9 +295,9 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 11),
 
-        // ============================================
-        // BUFFER
-        // ============================================
+        // ===================================
+        // 4. EMERGENCY BUFFER
+        // ===================================
 
         Container(
           padding: const EdgeInsets.symmetric(
@@ -284,8 +305,7 @@ class DashboardPage extends ConsumerWidget {
             vertical: 13,
           ),
           decoration: BoxDecoration(
-            color: scheme.brightness ==
-                    Brightness.dark
+            color: scheme.brightness == Brightness.dark
                 ? scheme.surface
                 : _softGreen,
             borderRadius: BorderRadius.circular(16),
@@ -323,9 +343,62 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 23),
 
-        // ============================================
-        // ALLOCATION CHART
-        // ============================================
+        // ===================================
+        // 5. TRANSACTION OVERVIEW
+        // ===================================
+
+        TransactionsOverviewCard(
+          onOpenTransactions: openTransactions,
+        ),
+
+        const SizedBox(height: 18),
+
+        // ===================================
+        // 6. EXPENSE BUDGET ANALYSIS
+        // ===================================
+
+        ExpenseBudgetCard(
+          plan: current,
+          onOpenTransactions: openTransactions,
+          onOpenPlanner: onOpenPlanner,
+        ),
+
+        const SizedBox(height: 18),
+
+        // ===================================
+        // 7. EXPENSE CATEGORY ANALYSIS
+        // ===================================
+
+        ExpenseCategoryCard(
+          onOpenTransactions: openTransactions,
+        ),
+
+        const SizedBox(height: 18),
+
+        // ===================================
+        // 8. MONTHLY EXPENSE TREND
+        // ===================================
+
+        MonthlyExpenseTrendCard(
+          onOpenTransactions: openTransactions,
+        ),
+
+        const SizedBox(height: 18),
+
+        // ===================================
+        // 9. SAVINGS OVERVIEW
+        // ===================================
+
+        SavingsOverviewCard(
+          onOpenSavings: onOpenPlanner,
+          buttonLabel: 'Buka Planner',
+        ),
+
+        const SizedBox(height: 18),
+
+        // ===================================
+        // 10. SALARY ALLOCATION CHART
+        // ===================================
 
         AllocationCard(
           plan: current,
@@ -333,19 +406,17 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 18),
 
-        // ============================================
-        // OPEN PLANNER
-        // ============================================
+        // ===================================
+        // 11. OPEN PLANNER BUTTON
+        // ===================================
 
         FilledButton.icon(
           onPressed: onOpenPlanner,
           style: FilledButton.styleFrom(
             backgroundColor: _darkGreen,
-            minimumSize:
-                const Size.fromHeight(54),
+            minimumSize: const Size.fromHeight(54),
             shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(17),
+              borderRadius: BorderRadius.circular(17),
             ),
           ),
           icon: const Icon(
@@ -362,23 +433,30 @@ class DashboardPage extends ConsumerWidget {
 
         const SizedBox(height: 13),
 
+        // ===================================
+        // 12. INFORMATION
+        // ===================================
+
         const Row(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               Icons.info_outline_rounded,
               color: _muted,
               size: 14,
             ),
+
             SizedBox(width: 6),
+
             Flexible(
               child: Text(
-                'Berdasarkan rencana, bukan transaksi aktual',
+                'Anggaran adalah rencana; '
+                'Kantong Tabungan adalah catatan saldo',
                 style: TextStyle(
                   color: _muted,
                   fontSize: 10,
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -388,9 +466,9 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-// =====================================================
-// METRIC CARD
-// =====================================================
+// ==========================================
+// METRIC CARD COMPONENT
+// ==========================================
 
 class _MetricCard extends StatelessWidget {
   const _MetricCard({
@@ -405,33 +483,32 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme =
-        Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: scheme.surface,
-        borderRadius:
-            BorderRadius.circular(19),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(
-          color: scheme.brightness ==
-                  Brightness.dark
+          color: scheme.brightness == Brightness.dark
               ? Colors.white12
               : const Color(0xFFE5EFE8),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // =================================
+          // ICON
+          // =================================
+
           Container(
             width: 37,
             height: 37,
             decoration: BoxDecoration(
               color: _softGreen,
-              borderRadius:
-                  BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
@@ -441,6 +518,10 @@ class _MetricCard extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
+
+          // =================================
+          // LABEL
+          // =================================
 
           Text(
             label,
@@ -452,6 +533,10 @@ class _MetricCard extends StatelessWidget {
 
           const SizedBox(height: 5),
 
+          // =================================
+          // AMOUNT
+          // =================================
+
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -460,8 +545,7 @@ class _MetricCard extends StatelessWidget {
               style: TextStyle(
                 color: scheme.onSurface,
                 fontSize: 16,
-                fontWeight:
-                    FontWeight.w900,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),

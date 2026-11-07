@@ -1,11 +1,28 @@
-
 import 'package:flutter/foundation.dart';
 
 import '../data/transaction_repository.dart';
 import '../models/finance_transaction.dart';
 
 // ==========================================
-// TRANSACTION CONTROLLER FINPLAN
+// MONTHLY TRANSACTION TREND
+// ==========================================
+
+class MonthlyTransactionTrend {
+  const MonthlyTransactionTrend({
+    required this.month,
+    required this.summary,
+  });
+
+  final DateTime month;
+  final TransactionSummary summary;
+
+  int get income => summary.totalIncome;
+  int get expense => summary.totalExpense;
+  int get net => summary.netAmount;
+}
+
+// ==========================================
+// TRANSACTION CONTROLLER
 // ==========================================
 
 class TransactionController extends ChangeNotifier {
@@ -27,7 +44,7 @@ class TransactionController extends ChangeNotifier {
   static const int _pageSize = 50;
 
   // ========================================
-  // 1. STATE TRANSAKSI
+  // STATE
   // ========================================
 
   List<FinanceTransaction> _transactions = const [];
@@ -52,12 +69,11 @@ class TransactionController extends ChangeNotifier {
   int _requestVersion = 0;
 
   // ========================================
-  // 2. GETTER
+  // GETTERS
   // ========================================
 
-  List<FinanceTransaction> get transactions {
-    return _transactions;
-  }
+  List<FinanceTransaction> get transactions =>
+      _transactions;
 
   TransactionSummary get summary => _summary;
 
@@ -83,7 +99,7 @@ class TransactionController extends ChangeNotifier {
       _summary.transactionCount;
 
   // ========================================
-  // 3. TANGGAL AWAL DAN AKHIR BULAN
+  // DATE HELPERS
   // ========================================
 
   DateTime get _firstDay {
@@ -103,7 +119,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 4. MEMUAT DATA TRANSAKSI
+  // LOAD TRANSACTIONS
   // ========================================
 
   Future<void> loadTransactions() async {
@@ -120,15 +136,14 @@ class TransactionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Rekap dihitung dari seluruh transaksi
-      // pada bulan terpilih, bukan hanya
-      // transaksi yang muncul di halaman pertama.
+      // Rekap seluruh transaksi dalam bulan.
       final newSummary =
           await _repository.getMonthlySummary(
         year: firstDay.year,
         month: firstDay.month,
       );
 
+      // Daftar transaksi menggunakan pagination.
       final newTransactions =
           await _repository.getTransactions(
         startDate: firstDay,
@@ -137,7 +152,6 @@ class TransactionController extends ChangeNotifier {
         offset: 0,
       );
 
-      // Abaikan hasil request lama.
       if (_disposed || request != _requestVersion) {
         return;
       }
@@ -148,17 +162,20 @@ class TransactionController extends ChangeNotifier {
         newTransactions,
       );
 
-      _hasMore = newTransactions.length == _pageSize;
+      _hasMore =
+          newTransactions.length == _pageSize;
 
       _error = null;
-    } catch (e) {
+    } catch (_) {
       if (_disposed || request != _requestVersion) {
         return;
       }
 
-      _error = 'Gagal memuat transaksi. Coba lagi.';
+      _error =
+          'Gagal memuat transaksi. Coba lagi.';
     } finally {
-      if (!_disposed && request == _requestVersion) {
+      if (!_disposed &&
+          request == _requestVersion) {
         _isLoading = false;
         notifyListeners();
       }
@@ -166,7 +183,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 5. REFRESH DATA
+  // REFRESH
   // ========================================
 
   Future<void> refresh() async {
@@ -174,7 +191,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 6. MENGGANTI BULAN
+  // SELECT MONTH
   // ========================================
 
   Future<void> selectMonth(DateTime month) async {
@@ -197,7 +214,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 7. MEMUAT TRANSAKSI BERIKUTNYA
+  // LOAD MORE
   // ========================================
 
   Future<void> loadMore() async {
@@ -216,7 +233,6 @@ class TransactionController extends ChangeNotifier {
     final offset = _transactions.length;
 
     _isLoadingMore = true;
-
     notifyListeners();
 
     try {
@@ -228,7 +244,8 @@ class TransactionController extends ChangeNotifier {
         offset: offset,
       );
 
-      if (_disposed || request != _requestVersion) {
+      if (_disposed ||
+          request != _requestVersion) {
         return;
       }
 
@@ -237,15 +254,19 @@ class TransactionController extends ChangeNotifier {
         ...nextTransactions,
       ]);
 
-      _hasMore = nextTransactions.length == _pageSize;
-    } catch (e) {
-      if (_disposed || request != _requestVersion) {
+      _hasMore =
+          nextTransactions.length == _pageSize;
+    } catch (_) {
+      if (_disposed ||
+          request != _requestVersion) {
         return;
       }
 
-      _error = 'Gagal memuat transaksi berikutnya.';
+      _error =
+          'Gagal memuat transaksi berikutnya.';
     } finally {
-      if (!_disposed && request == _requestVersion) {
+      if (!_disposed &&
+          request == _requestVersion) {
         _isLoadingMore = false;
         notifyListeners();
       }
@@ -253,7 +274,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 8. HELPER UNTUK OPERASI PENYIMPANAN
+  // MUTATION HELPER
   // ========================================
 
   Future<T> _performMutation<T>(
@@ -280,8 +301,6 @@ class TransactionController extends ChangeNotifier {
     try {
       final result = await operation();
 
-      // Jika transaksi dibuat untuk bulan lain,
-      // tampilkan bulan transaksi tersebut.
       if (focusMonth != null) {
         _selectedMonth = DateTime(
           focusMonth.year,
@@ -290,13 +309,14 @@ class TransactionController extends ChangeNotifier {
         );
       }
 
-      // Perbarui daftar dan total transaksi.
       await loadTransactions();
 
       return result;
-    } catch (e) {
+    } catch (_) {
       if (!_disposed) {
-        _error = 'Gagal menyimpan perubahan transaksi.';
+        _error =
+            'Gagal menyimpan perubahan transaksi.';
+
         notifyListeners();
       }
 
@@ -310,53 +330,47 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 9. CREATE - TAMBAH TRANSAKSI
+  // ADD TRANSACTION
   // ========================================
 
   Future<int> addTransaction(
     FinanceTransaction transaction,
   ) async {
     return _performMutation<int>(
-      () {
-        return _repository.insertTransaction(
-          transaction,
-        );
-      },
+      () => _repository.insertTransaction(
+        transaction,
+      ),
       focusMonth: transaction.date,
     );
   }
 
   // ========================================
-  // 10. UPDATE - EDIT TRANSAKSI
+  // UPDATE TRANSACTION
   // ========================================
 
   Future<bool> updateTransaction(
     FinanceTransaction transaction,
   ) async {
     return _performMutation<bool>(
-      () {
-        return _repository.updateTransaction(
-          transaction,
-        );
-      },
+      () => _repository.updateTransaction(
+        transaction,
+      ),
       focusMonth: transaction.date,
     );
   }
 
   // ========================================
-  // 11. DELETE - HAPUS TRANSAKSI
+  // DELETE TRANSACTION
   // ========================================
 
   Future<bool> deleteTransaction(int id) async {
     return _performMutation<bool>(
-      () {
-        return _repository.deleteTransaction(id);
-      },
+      () => _repository.deleteTransaction(id),
     );
   }
 
   // ========================================
-  // 12. MENGAMBIL DETAIL TRANSAKSI
+  // GET TRANSACTION BY ID
   // ========================================
 
   Future<FinanceTransaction?> getTransactionById(
@@ -366,7 +380,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 13. REKAP PER AKUN
+  // ACCOUNT SUMMARY
   // ========================================
 
   Future<TransactionSummary> getAccountSummary({
@@ -384,19 +398,83 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 14. MENGHAPUS PESAN ERROR
+  // MONTHLY TRANSACTION TRENDS
+  // ========================================
+
+  /// Mengambil tren pemasukan dan pengeluaran
+  /// dari database untuk beberapa bulan.
+  Future<List<MonthlyTransactionTrend>>
+      getMonthlyTrends({
+    DateTime? endingMonth,
+    int count = 6,
+  }) async {
+    if (count < 1 || count > 24) {
+      throw ArgumentError(
+        'Jumlah bulan harus antara 1 dan 24.',
+      );
+    }
+
+    final end = endingMonth ?? _selectedMonth;
+
+    final months = List<DateTime>.generate(
+      count,
+      (index) => DateTime(
+        end.year,
+        end.month - count + index + 1,
+        1,
+      ),
+    );
+
+    return Future.wait(
+      months.map((month) async {
+        final summary =
+            await _repository.getMonthlySummary(
+          year: month.year,
+          month: month.month,
+        );
+
+        return MonthlyTransactionTrend(
+          month: month,
+          summary: summary,
+        );
+      }),
+    );
+  }
+
+  // ========================================
+  // MONTHLY EXPENSE CATEGORY SUMMARY
+  // ========================================
+
+  /// Fitur baru:
+  /// Mengambil rekap pengeluaran per kategori
+  /// dari SQLite berdasarkan bulan tertentu.
+  ///
+  /// Tidak menggunakan daftar transaksi
+  /// yang dibatasi pagination.
+  Future<List<ExpenseCategorySummary>>
+      getMonthlyExpenseCategorySummary({
+    required int year,
+    required int month,
+  }) async {
+    return _repository.getMonthlyExpenseCategorySummary(
+      year: year,
+      month: month,
+    );
+  }
+
+  // ========================================
+  // CLEAR ERROR
   // ========================================
 
   void clearError() {
     if (_disposed) return;
 
     _error = null;
-
     notifyListeners();
   }
 
   // ========================================
-  // 15. MENUTUP DATABASE
+  // CLOSE DATABASE
   // ========================================
 
   Future<void> closeDatabase() async {
@@ -404,7 +482,7 @@ class TransactionController extends ChangeNotifier {
   }
 
   // ========================================
-  // 16. MEMBERSIHKAN CONTROLLER
+  // DISPOSE
   // ========================================
 
   @override

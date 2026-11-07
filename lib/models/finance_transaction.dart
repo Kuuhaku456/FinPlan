@@ -1,17 +1,23 @@
 // ==========================================
-// FINPLAN TRANSACTION MODEL
+// FINPLAN - FINANCE TRANSACTION MODEL
 // ==========================================
 //
-// Mencatat:
+// Model untuk menyimpan transaksi keuangan.
+//
+// Mendukung:
 // - Pemasukan dan pengeluaran
 // - Tanggal transaksi
-// - Nominal uang
+// - Nominal Rupiah
+// - Kategori transaksi
 // - Jenis akun
 // - Nama bank / e-money / tunai
 // - Deskripsi transaksi
+// - Penyimpanan SQLite
+// - Edit transaksi
 //
-// Nominal menggunakan int (Rupiah).
 // ==========================================
+
+import 'transaction_category.dart';
 
 // ==========================================
 // 1. JENIS TRANSAKSI
@@ -72,7 +78,7 @@ extension AccountTypeLabel on AccountType {
 }
 
 // ==========================================
-// 5. MODEL TRANSAKSI UTAMA
+// 5. FINANCE TRANSACTION MODEL
 // ==========================================
 
 class FinanceTransaction {
@@ -84,39 +90,100 @@ class FinanceTransaction {
     required this.accountType,
     required this.accountName,
     required this.description,
+    this.category = TransactionCategory.other,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  // ID database. Null untuk transaksi baru.
+  // ========================================
+  // DATABASE ID
+  // ========================================
+
+  /// ID transaksi dari SQLite.
+  /// Null ketika transaksi belum disimpan.
   final int? id;
 
-  // Tanggal transaksi.
+  // ========================================
+  // TRANSACTION DATE
+  // ========================================
+
+  /// Tanggal terjadinya transaksi.
   final DateTime date;
 
-  // Nominal dalam Rupiah.
+  // ========================================
+  // TRANSACTION AMOUNT
+  // ========================================
+
+  /// Nominal dalam Rupiah.
+  /// Disimpan sebagai integer.
   final int amount;
 
-  // Pemasukan atau pengeluaran.
+  // ========================================
+  // TRANSACTION TYPE
+  // ========================================
+
+  /// Pemasukan atau pengeluaran.
   final TransactionType type;
 
-  // Bank, e-money, tunai, atau lainnya.
+  // ========================================
+  // TRANSACTION CATEGORY
+  // ========================================
+
+  /// Kategori transaksi.
+  ///
+  /// Contoh:
+  /// - food
+  /// - transport
+  /// - bills
+  /// - healthcare
+  ///
+  /// Nilai default adalah other agar transaksi
+  /// lama tetap kompatibel.
+  final TransactionCategory category;
+
+  // ========================================
+  // ACCOUNT TYPE
+  // ========================================
+
+  /// Jenis akun yang digunakan.
   final AccountType accountType;
 
-  // Contoh: BCA, Krom Bank, DANA.
+  // ========================================
+  // ACCOUNT NAME
+  // ========================================
+
+  /// Contoh:
+  /// - BCA
+  /// - Krom Bank
+  /// - DANA
+  /// - GoPay
+  /// - Tunai
   final String accountName;
 
-  // Tujuan atau keterangan transaksi.
+  // ========================================
+  // DESCRIPTION
+  // ========================================
+
+  /// Keterangan transaksi.
+  ///
+  /// Contoh:
+  /// "Makan siang"
+  /// "Naik KRL"
+  /// "Bayar listrik"
   final String description;
 
-  // Waktu saat catatan dibuat.
+  // ========================================
+  // CREATED AT
+  // ========================================
+
+  /// Waktu transaksi dicatat.
   final DateTime createdAt;
 
   // ========================================
   // 6. NOMINAL BERTANDA
   // ========================================
 
-  // Pemasukan positif.
-  // Pengeluaran negatif.
+  /// Pemasukan bernilai positif.
+  /// Pengeluaran bernilai negatif.
   int get signedAmount {
     return type == TransactionType.income
         ? amount
@@ -124,7 +191,31 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 7. FORMAT TANGGAL UNTUK DATABASE
+  // 7. HELPER JENIS TRANSAKSI
+  // ========================================
+
+  bool get isIncome {
+    return type == TransactionType.income;
+  }
+
+  bool get isExpense {
+    return type == TransactionType.expense;
+  }
+
+  // ========================================
+  // 8. LABEL KATEGORI
+  // ========================================
+
+  String get categoryLabel {
+    return category.label;
+  }
+
+  String get categoryEmoji {
+    return category.emoji;
+  }
+
+  // ========================================
+  // 9. FORMAT TANGGAL DATABASE
   // ========================================
 
   String get dateString {
@@ -138,10 +229,19 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 8. MENGUBAH TRANSAKSI KE MAP
+  // 10. CONVERT TRANSACTION TO MAP
   // ========================================
 
-  Map<String, Object?> toMap() {
+  /// Mengubah transaksi menjadi Map SQLite.
+  ///
+  /// includeCategory masih false secara default
+  /// agar kompatibel dengan database versi lama.
+  ///
+  /// Setelah migrasi SQLite selesai, repository
+  /// akan menggunakan includeCategory: true.
+  Map<String, Object?> toMap({
+    bool includeCategory = false,
+  }) {
     final data = <String, Object?>{
       'transaction_date': dateString,
       'amount': amount,
@@ -152,6 +252,12 @@ class FinanceTransaction {
       'created_at': createdAt.millisecondsSinceEpoch,
     };
 
+    // Kategori hanya disertakan jika
+    // struktur SQLite sudah mendukungnya.
+    if (includeCategory) {
+      data['category'] = category.databaseValue;
+    }
+
     if (id != null) {
       data['id'] = id;
     }
@@ -160,15 +266,15 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 9. MEMBACA JENIS TRANSAKSI
+  // 11. READ TRANSACTION TYPE
   // ========================================
 
   static TransactionType _readTransactionType(
     dynamic value,
   ) {
-    for (final type in TransactionType.values) {
-      if (type.name == value) {
-        return type;
+    for (final transactionType in TransactionType.values) {
+      if (transactionType.name == value) {
+        return transactionType;
       }
     }
 
@@ -176,15 +282,15 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 10. MEMBACA JENIS AKUN
+  // 12. READ ACCOUNT TYPE
   // ========================================
 
   static AccountType _readAccountType(
     dynamic value,
   ) {
-    for (final type in AccountType.values) {
-      if (type.name == value) {
-        return type;
+    for (final accountType in AccountType.values) {
+      if (accountType.name == value) {
+        return accountType;
       }
     }
 
@@ -192,9 +298,25 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 11. MEMBACA TRANSAKSI DARI DATABASE
+  // 13. READ CATEGORY
   // ========================================
 
+  static TransactionCategory _readCategory(
+    dynamic value,
+  ) {
+    return TransactionCategoryExtension.fromDatabase(
+      value,
+    );
+  }
+
+  // ========================================
+  // 14. CONVERT MAP TO TRANSACTION
+  // ========================================
+
+  /// Membaca data transaksi dari SQLite.
+  ///
+  /// Apabila kolom kategori belum tersedia,
+  /// otomatis menggunakan kategori other.
   factory FinanceTransaction.fromMap(
     Map<String, Object?> map,
   ) {
@@ -213,6 +335,10 @@ class FinanceTransaction {
 
       type: _readTransactionType(
         map['type'],
+      ),
+
+      category: _readCategory(
+        map['category'],
       ),
 
       accountType: _readAccountType(
@@ -234,25 +360,39 @@ class FinanceTransaction {
   }
 
   // ========================================
-  // 12. COPY TRANSAKSI
+  // 15. COPY TRANSACTION
   // ========================================
 
+  /// Digunakan ketika mengedit transaksi.
+  ///
+  /// Data yang tidak diubah akan menggunakan
+  /// nilai dari transaksi sebelumnya.
   FinanceTransaction copyWith({
     DateTime? date,
     int? amount,
     TransactionType? type,
+    TransactionCategory? category,
     AccountType? accountType,
     String? accountName,
     String? description,
   }) {
     return FinanceTransaction(
       id: id,
+
       date: date ?? this.date,
+
       amount: amount ?? this.amount,
+
       type: type ?? this.type,
+
+      category: category ?? this.category,
+
       accountType: accountType ?? this.accountType,
+
       accountName: accountName ?? this.accountName,
+
       description: description ?? this.description,
+
       createdAt: createdAt,
     );
   }

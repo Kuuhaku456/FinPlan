@@ -1,11 +1,34 @@
-
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/finance_transaction.dart';
+import '../models/transaction_category.dart';
 
 // ==========================================
-// MODEL RINGKASAN TRANSAKSI
+// FINPLAN - TRANSACTION REPOSITORY
+// ==========================================
+//
+// SQLite Database Version 2
+//
+// Fitur:
+// - Menambah transaksi
+// - Menampilkan transaksi
+// - Mengedit transaksi
+// - Menghapus transaksi
+// - Filter berdasarkan tanggal
+// - Filter berdasarkan jenis akun
+// - Filter berdasarkan kategori
+// - Rekap pemasukan dan pengeluaran
+// - Rekap bulanan
+// - Rekap berdasarkan akun
+// - Rekap pengeluaran per kategori
+// - Migrasi database otomatis
+//
+// ==========================================
+
+
+// ==========================================
+// 1. TRANSACTION SUMMARY MODEL
 // ==========================================
 
 class TransactionSummary {
@@ -15,16 +38,10 @@ class TransactionSummary {
     required this.transactionCount,
   });
 
-  // Total uang masuk.
   final int totalIncome;
-
-  // Total uang keluar.
   final int totalExpense;
-
-  // Jumlah transaksi.
   final int transactionCount;
 
-  // Selisih pemasukan dan pengeluaran.
   int get netAmount {
     return totalIncome - totalExpense;
   }
@@ -34,8 +51,36 @@ class TransactionSummary {
   }
 }
 
+
 // ==========================================
-// HELPER FILTER QUERY
+// 2. EXPENSE CATEGORY SUMMARY MODEL
+// ==========================================
+
+class ExpenseCategorySummary {
+  const ExpenseCategorySummary({
+    required this.category,
+    required this.totalAmount,
+    required this.transactionCount,
+  });
+
+  final TransactionCategory category;
+
+  final int totalAmount;
+
+  final int transactionCount;
+
+  String get categoryName {
+    return category.label;
+  }
+
+  String get categoryEmoji {
+    return category.emoji;
+  }
+}
+
+
+// ==========================================
+// 3. SQL FILTER HELPER
 // ==========================================
 
 class _SqlFilter {
@@ -45,11 +90,13 @@ class _SqlFilter {
   });
 
   final String? where;
+
   final List<Object?> arguments;
 }
 
+
 // ==========================================
-// SQLITE TRANSACTION REPOSITORY
+// 4. TRANSACTION REPOSITORY
 // ==========================================
 
 class TransactionRepository {
@@ -58,12 +105,15 @@ class TransactionRepository {
 
   static const String _tableName = 'transactions';
 
-  static const int _databaseVersion = 1;
+  // Versi sebelumnya: 1
+  // Versi sekarang: 2
+  static const int _databaseVersion = 2;
 
   Future<Database>? _databaseFuture;
 
+
   // ========================================
-  // 1. MEMBUKA DATABASE
+  // 5. DATABASE INSTANCE
   // ========================================
 
   Future<Database> get database async {
@@ -78,11 +128,15 @@ class TransactionRepository {
     try {
       return await future;
     } catch (_) {
-      // Izinkan percobaan ulang jika gagal.
       _databaseFuture = null;
       rethrow;
     }
   }
+
+
+  // ========================================
+  // 6. OPEN DATABASE
+  // ========================================
 
   Future<Database> _openDatabase() async {
     final databaseDirectory =
@@ -99,44 +153,99 @@ class TransactionRepository {
       version: _databaseVersion,
 
       onCreate: (db, version) async {
-        // Membuat tabel transaksi.
-        await db.execute('''
-          CREATE TABLE $_tableName (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            transaction_date TEXT NOT NULL,
-            amount INTEGER NOT NULL CHECK(amount > 0),
-            type TEXT NOT NULL
-              CHECK(type IN ('income', 'expense')),
-            account_type TEXT NOT NULL
-              CHECK(account_type IN (
-                'bank',
-                'eMoney',
-                'cash',
-                'other'
-              )),
-            account_name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            created_at INTEGER NOT NULL
-          )
-        ''');
+        await _createTables(db);
+      },
 
-        // Mempercepat pencarian berdasarkan tanggal.
-        await db.execute('''
-          CREATE INDEX idx_transactions_date
-          ON $_tableName(transaction_date)
-        ''');
-
-        // Mempercepat pencarian berdasarkan akun.
-        await db.execute('''
-          CREATE INDEX idx_transactions_account
-          ON $_tableName(account_type, account_name)
-        ''');
+      onUpgrade: (db, oldVersion, newVersion) async {
+        // Migrasi dari versi 1 ke versi 2.
+        if (oldVersion < 2) {
+          await _migrateToVersion2(db);
+        }
       },
     );
   }
 
+
   // ========================================
-  // 2. VALIDASI DATA TRANSAKSI
+  // 7. CREATE TABLES
+  // ========================================
+
+  Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE $_tableName (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        transaction_date TEXT NOT NULL,
+
+        amount INTEGER NOT NULL
+          CHECK(amount > 0),
+
+        type TEXT NOT NULL
+          CHECK(type IN ('income', 'expense')),
+
+        category TEXT NOT NULL
+          DEFAULT 'other',
+
+        account_type TEXT NOT NULL
+          CHECK(account_type IN (
+            'bank',
+            'eMoney',
+            'cash',
+            'other'
+          )),
+
+        account_name TEXT NOT NULL,
+
+        description TEXT NOT NULL,
+
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_transactions_date
+      ON $_tableName(transaction_date)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_transactions_account
+      ON $_tableName(account_type, account_name)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_transactions_category_date
+      ON $_tableName(category, transaction_date)
+    ''');
+  }
+
+
+  // ========================================
+  // 8. MIGRATION VERSION 2
+  // ========================================
+
+  /// Migrasi database tanpa menghapus
+  /// transaksi yang sudah tersimpan.
+  ///
+  /// Semua transaksi lama otomatis memiliki
+  /// kategori 'other'.
+  Future<void> _migrateToVersion2(
+    Database db,
+  ) async {
+    await db.execute('''
+      ALTER TABLE $_tableName
+      ADD COLUMN category TEXT NOT NULL
+      DEFAULT 'other'
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_transactions_category_date
+      ON $_tableName(category, transaction_date)
+    ''');
+  }
+
+
+  // ========================================
+  // 9. VALIDATE TRANSACTION
   // ========================================
 
   void _validateTransaction(
@@ -150,7 +259,7 @@ class TransactionRepository {
 
     if (transaction.accountName.trim().isEmpty) {
       throw ArgumentError(
-        'Nama bank, e-money, atau akun harus diisi.',
+        'Nama akun harus diisi.',
       );
     }
 
@@ -161,35 +270,39 @@ class TransactionRepository {
     }
   }
 
+
   // ========================================
-  // 3. FORMAT TANGGAL DATABASE
+  // 10. DATE FORMAT
   // ========================================
 
   String _dateText(DateTime date) {
     final year = date.year.toString().padLeft(4, '0');
 
-    final month =
-        date.month.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
 
     final day = date.day.toString().padLeft(2, '0');
 
     return '$year-$month-$day';
   }
 
+
   // ========================================
-  // 4. MEMBUAT FILTER QUERY
+  // 11. SQL FILTER BUILDER
   // ========================================
 
   _SqlFilter _buildFilter({
     DateTime? startDate,
     DateTime? endDate,
     TransactionType? type,
+    TransactionCategory? category,
     AccountType? accountType,
     String? accountName,
   }) {
     final conditions = <String>[];
+
     final arguments = <Object?>[];
 
+    // Validasi rentang tanggal.
     if (startDate != null && endDate != null) {
       if (_dateText(startDate)
               .compareTo(_dateText(endDate)) >
@@ -202,42 +315,69 @@ class TransactionRepository {
 
     // Filter tanggal awal.
     if (startDate != null) {
-      conditions.add('transaction_date >= ?');
+      conditions.add(
+        'transaction_date >= ?',
+      );
 
       arguments.add(
         _dateText(startDate),
       );
     }
 
-    // Filter tanggal akhir, termasuk tanggalnya.
+    // Filter tanggal akhir.
     if (endDate != null) {
-      conditions.add('transaction_date <= ?');
+      conditions.add(
+        'transaction_date <= ?',
+      );
 
       arguments.add(
         _dateText(endDate),
       );
     }
 
-    // Filter pemasukan / pengeluaran.
+    // Filter jenis transaksi.
     if (type != null) {
-      conditions.add('type = ?');
+      conditions.add(
+        'type = ?',
+      );
 
-      arguments.add(type.name);
+      arguments.add(
+        type.name,
+      );
+    }
+
+    // Filter kategori.
+    if (category != null) {
+      conditions.add(
+        'category = ?',
+      );
+
+      arguments.add(
+        category.databaseValue,
+      );
     }
 
     // Filter jenis akun.
     if (accountType != null) {
-      conditions.add('account_type = ?');
+      conditions.add(
+        'account_type = ?',
+      );
 
-      arguments.add(accountType.name);
+      arguments.add(
+        accountType.name,
+      );
     }
 
     // Filter nama akun.
     if (accountName != null &&
         accountName.trim().isNotEmpty) {
-      conditions.add('account_name = ?');
+      conditions.add(
+        'account_name = ?',
+      );
 
-      arguments.add(accountName.trim());
+      arguments.add(
+        accountName.trim(),
+      );
     }
 
     return _SqlFilter(
@@ -249,8 +389,9 @@ class TransactionRepository {
     );
   }
 
+
   // ========================================
-  // 5. CREATE: MENAMBAHKAN TRANSAKSI
+  // 12. INSERT TRANSACTION
   // ========================================
 
   Future<int> insertTransaction(
@@ -260,12 +401,14 @@ class TransactionRepository {
 
     final db = await database;
 
-    final data = transaction.toMap();
+    // Kategori sekarang ikut disimpan.
+    final data = transaction.toMap(
+      includeCategory: true,
+    );
 
-    // ID dibuat otomatis oleh SQLite.
+    // ID otomatis dari SQLite.
     data.remove('id');
 
-    // Rapikan input teks.
     data['account_name'] =
         transaction.accountName.trim();
 
@@ -275,21 +418,22 @@ class TransactionRepository {
     final id = await db.insert(
       _tableName,
       data,
-
       conflictAlgorithm: ConflictAlgorithm.abort,
     );
 
     return id;
   }
 
+
   // ========================================
-  // 6. READ: MENGAMBIL DAFTAR TRANSAKSI
+  // 13. GET TRANSACTIONS
   // ========================================
 
   Future<List<FinanceTransaction>> getTransactions({
     DateTime? startDate,
     DateTime? endDate,
     TransactionType? type,
+    TransactionCategory? category,
     AccountType? accountType,
     String? accountName,
     int limit = 100,
@@ -313,6 +457,7 @@ class TransactionRepository {
       startDate: startDate,
       endDate: endDate,
       type: type,
+      category: category,
       accountType: accountType,
       accountName: accountName,
     );
@@ -330,18 +475,18 @@ class TransactionRepository {
           'transaction_date DESC, created_at DESC, id DESC',
 
       limit: limit,
+
       offset: offset,
     );
 
-    return rows
-        .map(
-          (row) => FinanceTransaction.fromMap(row),
-        )
-        .toList();
+    return rows.map((row) {
+      return FinanceTransaction.fromMap(row);
+    }).toList();
   }
 
+
   // ========================================
-  // 7. READ: MENGAMBIL TRANSAKSI DARI ID
+  // 14. GET TRANSACTION BY ID
   // ========================================
 
   Future<FinanceTransaction?> getTransactionById(
@@ -359,6 +504,7 @@ class TransactionRepository {
       _tableName,
 
       where: 'id = ?',
+
       whereArgs: [id],
 
       limit: 1,
@@ -373,8 +519,9 @@ class TransactionRepository {
     );
   }
 
+
   // ========================================
-  // 8. UPDATE: MEMPERBARUI TRANSAKSI
+  // 15. UPDATE TRANSACTION
   // ========================================
 
   Future<bool> updateTransaction(
@@ -392,9 +539,10 @@ class TransactionRepository {
 
     final db = await database;
 
-    final data = transaction.toMap();
+    final data = transaction.toMap(
+      includeCategory: true,
+    );
 
-    // ID tidak boleh ikut diperbarui.
     data.remove('id');
 
     data['account_name'] =
@@ -405,9 +553,11 @@ class TransactionRepository {
 
     final updatedRows = await db.update(
       _tableName,
+
       data,
 
       where: 'id = ?',
+
       whereArgs: [id],
 
       conflictAlgorithm: ConflictAlgorithm.abort,
@@ -416,11 +566,14 @@ class TransactionRepository {
     return updatedRows > 0;
   }
 
+
   // ========================================
-  // 9. DELETE: MENGHAPUS TRANSAKSI
+  // 16. DELETE TRANSACTION
   // ========================================
 
-  Future<bool> deleteTransaction(int id) async {
+  Future<bool> deleteTransaction(
+    int id,
+  ) async {
     if (id <= 0) {
       throw ArgumentError(
         'ID transaksi tidak valid.',
@@ -433,14 +586,16 @@ class TransactionRepository {
       _tableName,
 
       where: 'id = ?',
+
       whereArgs: [id],
     );
 
     return deletedRows > 0;
   }
 
+
   // ========================================
-  // 10. MEMBACA ANGKA DARI QUERY
+  // 17. READ INTEGER FROM QUERY
   // ========================================
 
   int _readInt(
@@ -456,13 +611,15 @@ class TransactionRepository {
     return 0;
   }
 
+
   // ========================================
-  // 11. REKAP PEMASUKAN DAN PENGELUARAN
+  // 18. TRANSACTION SUMMARY
   // ========================================
 
   Future<TransactionSummary> getSummary({
     DateTime? startDate,
     DateTime? endDate,
+    TransactionCategory? category,
     AccountType? accountType,
     String? accountName,
   }) async {
@@ -471,6 +628,7 @@ class TransactionRepository {
     final filter = _buildFilter(
       startDate: startDate,
       endDate: endDate,
+      category: category,
       accountType: accountType,
       accountName: accountName,
     );
@@ -508,6 +666,7 @@ class TransactionRepository {
 
       $whereSql
       ''',
+
       filter.arguments,
     );
 
@@ -539,8 +698,9 @@ class TransactionRepository {
     );
   }
 
+
   // ========================================
-  // 12. REKAP BERDASARKAN BULAN
+  // 19. MONTHLY SUMMARY
   // ========================================
 
   Future<TransactionSummary> getMonthlySummary({
@@ -571,8 +731,9 @@ class TransactionRepository {
     );
   }
 
+
   // ========================================
-  // 13. REKAP BERDASARKAN AKUN
+  // 20. ACCOUNT SUMMARY
   // ========================================
 
   Future<TransactionSummary> getAccountSummary({
@@ -589,8 +750,113 @@ class TransactionRepository {
     );
   }
 
+
   // ========================================
-  // 14. MENUTUP KONEKSI DATABASE
+  // 21. EXPENSE CATEGORY SUMMARY
+  // ========================================
+
+  /// Menghitung total pengeluaran
+  /// berdasarkan kategori.
+  ///
+  /// Menggunakan query SQLite langsung,
+  /// sehingga tidak terpengaruh pagination.
+  Future<List<ExpenseCategorySummary>>
+      getExpenseCategorySummary({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final db = await database;
+
+    final filter = _buildFilter(
+      startDate: startDate,
+      endDate: endDate,
+      type: TransactionType.expense,
+    );
+
+    final rows = await db.rawQuery(
+      '''
+      SELECT
+        category,
+
+        COALESCE(
+          SUM(amount),
+          0
+        ) AS total_amount,
+
+        COUNT(*) AS transaction_count
+
+      FROM $_tableName
+
+      WHERE ${filter.where}
+
+      GROUP BY category
+
+      ORDER BY
+        total_amount DESC,
+        category ASC
+      ''',
+
+      filter.arguments,
+    );
+
+    return rows.map((row) {
+      return ExpenseCategorySummary(
+        category: TransactionCategoryExtension.fromDatabase(
+          row['category'],
+        ),
+
+        totalAmount: _readInt(
+          row,
+          'total_amount',
+        ),
+
+        transactionCount: _readInt(
+          row,
+          'transaction_count',
+        ),
+      );
+    }).toList();
+  }
+
+
+  // ========================================
+  // 22. MONTHLY CATEGORY SUMMARY
+  // ========================================
+
+  /// Mengambil rekap kategori pengeluaran
+  /// untuk satu bulan tertentu.
+  Future<List<ExpenseCategorySummary>>
+      getMonthlyExpenseCategorySummary({
+    required int year,
+    required int month,
+  }) async {
+    if (month < 1 || month > 12) {
+      throw ArgumentError(
+        'Bulan harus antara 1 dan 12.',
+      );
+    }
+
+    final firstDay = DateTime(
+      year,
+      month,
+      1,
+    );
+
+    final lastDay = DateTime(
+      year,
+      month + 1,
+      0,
+    );
+
+    return getExpenseCategorySummary(
+      startDate: firstDay,
+      endDate: lastDay,
+    );
+  }
+
+
+  // ========================================
+  // 23. CLOSE DATABASE
   // ========================================
 
   Future<void> close() async {
