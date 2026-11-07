@@ -18,52 +18,28 @@ class SavingsSummary {
     required this.archivedGoals,
   });
 
-  // Jumlah uang yang tercatat di kantong aktif.
   final int totalSaved;
-
-  // Total target seluruh kantong aktif.
   final int totalTarget;
-
-  // Jumlah kantong aktif, termasuk yang sudah tercapai.
   final int activeGoals;
-
-  // Jumlah kantong aktif yang sudah mencapai target.
   final int completedGoals;
-
-  // Jumlah kantong yang diarsipkan.
   final int archivedGoals;
-
-  // ==========================================================
-  // TOTAL SISA TARGET
-  // ==========================================================
 
   int get remainingTarget {
     final remaining = totalTarget - totalSaved;
-
     return remaining < 0 ? 0 : remaining;
   }
 
-  // ==========================================================
-  // PROGRESS KESELURUHAN
-  // ==========================================================
-
   double get progress {
-    if (totalTarget <= 0) {
-      return 0;
-    }
+    if (totalTarget <= 0) return 0;
 
     return (totalSaved / totalTarget)
         .clamp(0.0, 1.0)
         .toDouble();
   }
 
-  double get progressPercent {
-    return progress * 100;
-  }
+  double get progressPercent => progress * 100;
 
-  bool get isEmpty {
-    return activeGoals == 0;
-  }
+  bool get isEmpty => activeGoals == 0;
 }
 
 // ============================================================
@@ -73,7 +49,7 @@ class SavingsSummary {
 class SavingsRepository {
   SavingsRepository({
     SharedPreferencesAsync? preferences,
-  }) : _preferences = preferences ?? SharedPreferencesAsync();
+  }) : _providedPreferences = preferences;
 
   // ==========================================================
   // KONFIGURASI PENYIMPANAN
@@ -84,18 +60,29 @@ class SavingsRepository {
 
   static const int _schemaVersion = 1;
 
-  final SharedPreferencesAsync _preferences;
+  // ==========================================================
+  // PERBAIKAN: LAZY INITIALIZATION
+  // ==========================================================
+
+  // Menyimpan instance SharedPreferencesAsync
+  // yang diberikan dari luar, jika ada.
+  final SharedPreferencesAsync? _providedPreferences;
+
+  // SharedPreferencesAsync baru dibuat ketika digunakan.
+  // Dengan demikian, constructor SavingsRepository tidak
+  // langsung mengakses plugin platform.
+  //
+  // Ini membantu Fake Repository dalam unit test yang
+  // menggunakan extends SavingsRepository.
+  late final SharedPreferencesAsync _preferences =
+      _providedPreferences ?? SharedPreferencesAsync();
 
   // ==========================================================
   // ANTREAN OPERASI
   // ==========================================================
 
-  // Semua operasi repository dijalankan secara berurutan
-  // untuk mengurangi risiko lost update ketika pengguna
-  // menekan tombol simpan atau tambah tabungan berdekatan.
-  //
-  // Gunakan satu instance SavingsRepository yang dibagikan
-  // ke seluruh aplikasi melalui SavingsController.
+  // Operasi penyimpanan dijalankan berurutan agar
+  // perubahan data tidak saling menimpa.
 
   Future<void> _operationQueue = Future<void>.value();
 
@@ -121,18 +108,14 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMBACA SEMUA DATA DARI PENYIMPANAN
+  // MEMBACA DATA DARI PENYIMPANAN
   // ==========================================================
-
-  // Method internal.
-  // Hanya dipanggil dari operasi yang sudah diserialisasi.
 
   Future<List<SavingsGoal>> _readGoalsInternal() async {
     final rawData = await _preferences.getString(
       _storageKey,
     );
 
-    // Belum pernah membuat kantong.
     if (rawData == null || rawData.trim().isEmpty) {
       return <SavingsGoal>[];
     }
@@ -149,7 +132,6 @@ class SavingsRepository {
 
     List<dynamic> rawGoals;
 
-    // Format penyimpanan utama.
     if (decoded is Map) {
       final versionValue = decoded['version'];
 
@@ -160,7 +142,6 @@ class SavingsRepository {
               ) ??
               1;
 
-      // Jangan menimpa data dari format yang lebih baru.
       if (version > _schemaVersion) {
         throw UnsupportedError(
           'Versi data tabungan lebih baru daripada '
@@ -177,10 +158,7 @@ class SavingsRepository {
       }
 
       rawGoals = goalsValue;
-    }
-
-    // Mendukung format JSON list sederhana.
-    else if (decoded is List) {
+    } else if (decoded is List) {
       rawGoals = decoded;
     } else {
       throw const FormatException(
@@ -246,7 +224,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MENYIMPAN SEMUA DATA
+  // MENYIMPAN DATA
   // ==========================================================
 
   Future<void> _writeGoalsInternal(
@@ -271,7 +249,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MENCARI INDEX KANTONG
+  // HELPER MENCARI KANTONG
   // ==========================================================
 
   int _findGoalIndex(
@@ -282,10 +260,6 @@ class SavingsRepository {
       (goal) => goal.id == goalId,
     );
   }
-
-  // ==========================================================
-  // MENDAPATKAN KANTONG ATAU THROW ERROR
-  // ==========================================================
 
   SavingsGoal _requireGoal(
     List<SavingsGoal> goals,
@@ -306,11 +280,11 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMPERBARUI DETAIL TANPA MENGUBAH SALDO
+  // HELPER EDIT INFORMASI KANTONG
   // ==========================================================
 
-  // Saat pengguna mengedit nama/target/deadline,
-  // saldo dan riwayat lama tetap dipertahankan.
+  // Hanya mengubah informasi kantong.
+  // Saldo dan riwayat tabungan tetap dipertahankan.
 
   SavingsGoal _mergeGoalDetails(
     SavingsGoal existing,
@@ -327,7 +301,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMBACA SEMUA KANTONG
+  // MEMUAT SEMUA KANTONG
   // ==========================================================
 
   Future<List<SavingsGoal>> getAllGoals({
@@ -342,7 +316,6 @@ class SavingsRepository {
               (goal) => !goal.isArchived,
             ).toList();
 
-      // Kantong yang terakhir diperbarui ditampilkan dahulu.
       filtered.sort(
         (a, b) => b.updatedAt.compareTo(a.updatedAt),
       );
@@ -354,7 +327,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // ALIAS UNTUK MEMUAT KANTONG
+  // ALIAS LOAD GOALS
   // ==========================================================
 
   Future<List<SavingsGoal>> loadGoals({
@@ -369,7 +342,9 @@ class SavingsRepository {
   // MEMBACA SATU KANTONG
   // ==========================================================
 
-  Future<SavingsGoal?> getGoalById(String goalId) {
+  Future<SavingsGoal?> getGoalById(
+    String goalId,
+  ) {
     return _runSerialized(() async {
       final id = _validateId(goalId);
 
@@ -418,12 +393,8 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // SIMPAN KANTONG (TAMBAH ATAU EDIT)
+  // SIMPAN KANTONG (CREATE ATAU EDIT)
   // ==========================================================
-
-  // Jika ID belum ada, dibuat kantong baru.
-  // Jika ID sudah ada, hanya metadata yang diperbarui.
-  // Saldo dan riwayat tetap menggunakan data tersimpan.
 
   Future<SavingsGoal> saveGoal(
     SavingsGoal goal,
@@ -458,7 +429,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // EDIT INFORMASI KANTONG
+  // EDIT KANTONG
   // ==========================================================
 
   Future<SavingsGoal> updateGoal(
@@ -511,10 +482,6 @@ class SavingsRepository {
         id,
       );
 
-      // SavingsGoal.addSavings otomatis:
-      // 1. Menambah saldo.
-      // 2. Membuat riwayat setoran.
-      // 3. Memperbarui updatedAt.
       final updatedGoal = existingGoal.addSavings(
         amount,
         note: note,
@@ -554,8 +521,6 @@ class SavingsRepository {
         id,
       );
 
-      // SavingsGoal akan menolak pengambilan
-      // yang melebihi saldo tersedia.
       final updatedGoal = existingGoal.withdrawSavings(
         amount,
         note: note,
@@ -576,7 +541,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MENGARSIPKAN KANTONG
+  // ARSIPKAN KANTONG
   // ==========================================================
 
   Future<SavingsGoal> archiveGoal(
@@ -608,7 +573,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMULIHKAN KANTONG DARI ARSIP
+  // PULIHKAN KANTONG DARI ARSIP
   // ==========================================================
 
   Future<SavingsGoal> restoreGoal(
@@ -643,11 +608,6 @@ class SavingsRepository {
   // HAPUS KANTONG
   // ==========================================================
 
-  // Penghapusan dilakukan setelah UI menampilkan
-  // dialog konfirmasi.
-  //
-  // Seluruh riwayat di dalam kantong ikut terhapus.
-
   Future<bool> deleteGoal(
     String goalId,
   ) {
@@ -673,7 +633,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMBACA RIWAYAT SETORAN / PENARIKAN
+  // RIWAYAT TABUNGAN
   // ==========================================================
 
   Future<List<SavingsMovement>> getMovementHistory(
@@ -693,7 +653,6 @@ class SavingsRepository {
         ...goal.movements,
       ];
 
-      // Aktivitas paling baru ditampilkan dahulu.
       movements.sort(
         (a, b) => b.date.compareTo(a.date),
       );
@@ -705,7 +664,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // RINGKASAN SELURUH TABUNGAN
+  // RINGKASAN TABUNGAN
   // ==========================================================
 
   Future<SavingsSummary> getSummary() {
@@ -745,7 +704,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // MEMBACA KANTONG YANG DIARSIPKAN
+  // MEMBACA KANTONG ARSIP
   // ==========================================================
 
   Future<List<SavingsGoal>> getArchivedGoals() {
@@ -787,7 +746,7 @@ class SavingsRepository {
   }
 
   // ==========================================================
-  // CEK APAKAH SUDAH ADA KANTONG
+  // CEK APAKAH ADA KANTONG AKTIF
   // ==========================================================
 
   Future<bool> hasGoals() {

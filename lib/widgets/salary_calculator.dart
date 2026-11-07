@@ -1028,7 +1028,7 @@ class _SalaryCalculatorSectionState
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _stepTitles.length,
-            separatorBuilder: (_, __) =>
+            separatorBuilder: (_, _) =>
                 const SizedBox(width: 7),
             itemBuilder: (context, index) =>
                 ActionChip(

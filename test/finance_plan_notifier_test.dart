@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/data/plan_repository.dart';
-import '../lib/models/finance_plan.dart';
-import '../lib/state/finance_plan_notifier.dart';
-import '../lib/state/plan_controller.dart';
+import 'package:celeng_id/data/plan_repository.dart';
+import 'package:celeng_id/models/finance_plan.dart';
+import 'package:celeng_id/state/finance_plan_notifier.dart';
+import 'package:celeng_id/state/plan_controller.dart';
 
 // =====================================================
 // FAKE REPOSITORY UNTUK UNIT TEST
