@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import '../lib/models/transaction_category.dart';
 import '../lib/data/transaction_repository.dart';
 import '../lib/models/finance_transaction.dart';
 import '../lib/state/transaction_controller.dart';
@@ -135,6 +135,7 @@ class _MemoryTransactionRepository
     DateTime? startDate,
     DateTime? endDate,
     TransactionType? type,
+    TransactionCategory? category,
     AccountType? accountType,
     String? accountName,
     int limit = 100,

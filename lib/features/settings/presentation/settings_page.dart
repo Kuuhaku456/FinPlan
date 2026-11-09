@@ -2,16 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../state/plan_controller.dart';
+
 import '../providers/app_settings_provider.dart';
 import '../providers/settings_ui_provider.dart';
+
 import 'widgets/settings_components.dart';
+import 'widgets/transaction_export_card.dart';
+import 'widgets/transaction_import_card.dart';
 
-const _darkGreen = Color(0xFF064E3B);
-const _green = Color(0xFF059669);
+// ==========================================
+// FINPLAN - SETTINGS PAGE
+// ==========================================
 
-// ============================================
-// FINPLAN SETTINGS PAGE
-// ============================================
+const Color _darkGreen = Color(0xFF064E3B);
+const Color _green = Color(0xFF059669);
+
+// ==========================================
+// MAIN SETTINGS PAGE
+// ==========================================
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({
@@ -21,11 +29,15 @@ class SettingsPage extends ConsumerWidget {
     required this.onTextScaleChanged,
   });
 
-  // Parameter sementara untuk kompatibilitas
-  // dengan pemanggilan dari main.dart lama.
+  // Dipertahankan agar kompatibel dengan
+  // pemanggilan SettingsPage pada FinanceShell.
   final PlanController controller;
   final double textScale;
   final ValueChanged<double> onTextScaleChanged;
+
+  // ========================================
+  // FONT SIZE PRESETS
+  // ========================================
 
   static const _presets = <(String, double)>[
     ('Normal', 1.0),
@@ -34,9 +46,9 @@ class SettingsPage extends ConsumerWidget {
     ('Ekstra Besar', 1.5),
   ];
 
-  // ==========================================
-  // CHANGE THEME
-  // ==========================================
+  // ========================================
+  // 1. CHANGE THEME
+  // ========================================
 
   Future<void> _changeTheme(
     BuildContext context,
@@ -52,7 +64,9 @@ class SettingsPage extends ConsumerWidget {
           .read(settingsUiProvider.notifier)
           .changeTheme(mode);
     } catch (_) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -64,9 +78,9 @@ class SettingsPage extends ConsumerWidget {
     }
   }
 
-  // ==========================================
-  // CONFIRM RESET PLAN
-  // ==========================================
+  // ========================================
+  // 2. RESET FINANCIAL PLAN
+  // ========================================
 
   Future<void> _confirmResetPlan(
     BuildContext context,
@@ -78,35 +92,53 @@ class SettingsPage extends ConsumerWidget {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        scrollable: true,
-        title: const Text(
-          'Reset rencana keuangan?',
-        ),
-        content: const Text(
-          'Rencana dan pembagian gaji akan dihapus, '
-          'lalu kamu perlu mengisi data perencanaan kembali.\n\n'
-          'Transaksi, kantong tabungan, dan profil tidak ikut dihapus.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, false),
-            child: const Text('Batal'),
+      builder: (dialogContext) {
+        final dialogScheme =
+            Theme.of(dialogContext).colorScheme;
+
+        return AlertDialog(
+          scrollable: true,
+
+          title: const Text(
+            'Reset Rencana Keuangan?',
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor:
-                  Theme.of(dialogContext).colorScheme.error,
-              foregroundColor:
-                  Theme.of(dialogContext).colorScheme.onError,
+
+          content: const Text(
+            'Rencana keuangan dan pembagian gaji '
+            'akan dihapus.\n\n'
+            'Kamu perlu mengisi data perencanaan '
+            'kembali setelah melakukan reset.\n\n'
+            'Transaksi, kantong tabungan, dan profil '
+            'tidak ikut dihapus.',
+          ),
+
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child: const Text('Batal'),
             ),
-            onPressed: () =>
-                Navigator.pop(dialogContext, true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
+
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: dialogScheme.error,
+                foregroundColor: dialogScheme.onError,
+              ),
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              child: const Text('Reset'),
+            ),
+          ],
+        );
+      },
     );
 
     if (confirmed != true || !context.mounted) {
@@ -118,14 +150,14 @@ class SettingsPage extends ConsumerWidget {
           .read(settingsUiProvider.notifier)
           .resetFinancialPlan();
 
-      if (
-        context.mounted &&
-        Navigator.of(context).canPop()
-      ) {
+      if (context.mounted &&
+          Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
     } catch (_) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -137,16 +169,18 @@ class SettingsPage extends ConsumerWidget {
     }
   }
 
-  // ==========================================
-  // SECTION TITLE
-  // ==========================================
+  // ========================================
+  // 3. SECTION TITLE
+  // ========================================
 
   Widget _sectionTitle(
     BuildContext context,
     String title,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(
+        bottom: 12,
+      ),
       child: Text(
         title,
         style: Theme.of(context)
@@ -159,17 +193,18 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  // ==========================================
-  // FONT SETTINGS
-  // ==========================================
+  // ========================================
+  // 4. FONT SETTINGS
+  // ========================================
 
   Widget _fontSettings(
     BuildContext context,
     WidgetRef ref,
     double selectedScale,
   ) {
-    final scheme = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     final percent = (selectedScale * 100).round();
 
     void changeFontSize(double value) {
@@ -182,15 +217,22 @@ class SettingsPage extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ==================================
+          // HEADER
+          // ==================================
+
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               SettingsIconBox(
                 icon: Icons.format_size_rounded,
                 color: scheme.primary,
                 background: scheme.primaryContainer,
               ),
+
               const SizedBox(width: 12),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -200,16 +242,21 @@ class SettingsPage extends ConsumerWidget {
                       'Ukuran Teks',
                       style: theme.textTheme.titleMedium
                           ?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                            fontWeight:
+                                FontWeight.w800,
+                          ),
                     ),
+
                     const SizedBox(height: 4),
+
                     Text(
-                      'Perbesar tulisan agar lebih mudah dibaca.',
+                      'Perbesar tulisan agar '
+                      'lebih mudah dibaca.',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
+                            color:
+                                scheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ),
@@ -219,23 +266,33 @@ class SettingsPage extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
+          // ==================================
+          // CURRENT FONT SIZE
+          // ==================================
+
           Row(
             children: [
               const Icon(
                 Icons.text_fields_rounded,
                 size: 18,
               ),
+
               const Spacer(),
+
               Text(
                 '$percent%',
                 style: theme.textTheme.titleLarge
                     ?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w900,
-                ),
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w900,
+                    ),
               ),
             ],
           ),
+
+          // ==================================
+          // FONT SIZE SLIDER
+          // ==================================
 
           Slider(
             value: selectedScale,
@@ -244,8 +301,9 @@ class SettingsPage extends ConsumerWidget {
             divisions: 10,
             label: '$percent%',
             onChanged: changeFontSize,
-            semanticFormatterCallback: (value) =>
-                '${(value * 100).round()} persen',
+            semanticFormatterCallback: (value) {
+              return '${(value * 100).round()} persen';
+            },
           ),
 
           Padding(
@@ -270,6 +328,10 @@ class SettingsPage extends ConsumerWidget {
 
           const SizedBox(height: 12),
 
+          // ==================================
+          // FONT PRESETS
+          // ==================================
+
           Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -280,13 +342,18 @@ class SettingsPage extends ConsumerWidget {
                   selected:
                       (selectedScale - preset.$2).abs() <
                           0.001,
-                  onSelected: (_) =>
-                      changeFontSize(preset.$2),
+                  onSelected: (_) {
+                    changeFontSize(preset.$2);
+                  },
                 ),
             ],
           ),
 
           const SizedBox(height: 16),
+
+          // ==================================
+          // FONT PREVIEW
+          // ==================================
 
           Container(
             width: double.infinity,
@@ -305,22 +372,27 @@ class SettingsPage extends ConsumerWidget {
                   'Pratinjau Tulisan',
                   style: theme.textTheme.labelLarge
                       ?.copyWith(
-                    color: scheme.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                        color: scheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
+
                 const SizedBox(height: 8),
+
                 Text(
                   'Mengatur uang jadi lebih mudah.',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   'Catat pemasukan, pengeluaran, '
-                  'dan target tabunganmu dengan nyaman.',
+                  'dan target tabunganmu '
+                  'dengan nyaman.',
                   style: theme.textTheme.bodyMedium,
                 ),
               ],
@@ -328,6 +400,10 @@ class SettingsPage extends ConsumerWidget {
           ),
 
           const SizedBox(height: 8),
+
+          // ==================================
+          // RESET FONT SIZE
+          // ==================================
 
           TextButton.icon(
             onPressed: selectedScale == 1.0
@@ -345,9 +421,9 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  // ==========================================
-  // THEME SETTINGS
-  // ==========================================
+  // ========================================
+  // 5. THEME SETTINGS
+  // ========================================
 
   Widget _themeSettings(
     BuildContext context,
@@ -356,7 +432,8 @@ class SettingsPage extends ConsumerWidget {
     bool isChangingTheme,
   ) {
     final mediaScale =
-        MediaQuery.textScalerOf(context).scale(16) / 16;
+        MediaQuery.textScalerOf(context).scale(16) /
+            16;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -364,46 +441,70 @@ class SettingsPage extends ConsumerWidget {
             constraints.maxWidth < 350 ||
                 mediaScale >= 1.4;
 
-        final light = SettingsThemePreviewCard(
+        final lightThemeCard =
+            SettingsThemePreviewCard(
           dark: false,
-          selected: selectedMode == ThemeMode.light,
+          selected:
+              selectedMode == ThemeMode.light,
           enabled: !isChangingTheme,
-          onTap: () => _changeTheme(
-            context,
-            ref,
-            ThemeMode.light,
-          ),
+          onTap: () {
+            _changeTheme(
+              context,
+              ref,
+              ThemeMode.light,
+            );
+          },
         );
 
-        final dark = SettingsThemePreviewCard(
+        final darkThemeCard =
+            SettingsThemePreviewCard(
           dark: true,
-          selected: selectedMode == ThemeMode.dark,
+          selected:
+              selectedMode == ThemeMode.dark,
           enabled: !isChangingTheme,
-          onTap: () => _changeTheme(
-            context,
-            ref,
-            ThemeMode.dark,
-          ),
+          onTap: () {
+            _changeTheme(
+              context,
+              ref,
+              ThemeMode.dark,
+            );
+          },
         );
 
         return Column(
           children: [
+            // ==================================
+            // LIGHT / DARK MODE
+            // ==================================
+
             if (stackVertically) ...[
-              light,
+              lightThemeCard,
+
               const SizedBox(height: 10),
-              dark,
+
+              darkThemeCard,
             ] else
               Row(
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: light),
+                  Expanded(
+                    child: lightThemeCard,
+                  ),
+
                   const SizedBox(width: 10),
-                  Expanded(child: dark),
+
+                  Expanded(
+                    child: darkThemeCard,
+                  ),
                 ],
               ),
 
             const SizedBox(height: 12),
+
+            // ==================================
+            // FOLLOW SYSTEM THEME
+            // ==================================
 
             SettingsSystemThemeChoice(
               selected:
@@ -414,11 +515,13 @@ class SettingsPage extends ConsumerWidget {
                         context,
                       ) ==
                       Brightness.dark,
-              onTap: () => _changeTheme(
-                context,
-                ref,
-                ThemeMode.system,
-              ),
+              onTap: () {
+                _changeTheme(
+                  context,
+                  ref,
+                  ThemeMode.system,
+                );
+              },
             ),
 
             const SizedBox(height: 9),
@@ -428,16 +531,18 @@ class SettingsPage extends ConsumerWidget {
                 horizontal: 3,
               ),
               child: Text(
-                'Jika memilih Ikuti Sistem HP, FinPlan '
-                'langsung memakai tema perangkat saat dibuka '
-                'dan ikut berubah saat tema HP berubah.',
-                style:
-                    Theme.of(context).textTheme.bodySmall,
+                'Jika memilih Ikuti Sistem HP, '
+                'FinPlan akan mengikuti tema '
+                'yang digunakan perangkat.',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall,
               ),
             ),
 
             if (isChangingTheme) ...[
               const SizedBox(height: 10),
+
               const LinearProgressIndicator(
                 minHeight: 3,
               ),
@@ -448,14 +553,253 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  // ==========================================
-  // BUILD SETTINGS PAGE
-  // ==========================================
+  // ========================================
+  // 6. FINPLAN HEADER
+  // ========================================
+
+  Widget _buildFinPlanHeader(
+    BuildContext context,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          colors: [
+            _darkGreen,
+            _green,
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(
+                alpha: 0.16,
+              ),
+              borderRadius:
+                  BorderRadius.circular(17),
+            ),
+            child: const Icon(
+              Icons.account_balance_wallet_rounded,
+              color: Colors.white,
+              size: 27,
+            ),
+          ),
+
+          const SizedBox(width: 14),
+
+          const Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FinPlan',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 22,
+                  ),
+                ),
+
+                SizedBox(height: 4),
+
+                Text(
+                  'Your Personal Finance Partner',
+                  style: TextStyle(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================
+  // 7. RESET PLAN CARD
+  // ========================================
+
+  Widget _buildResetPlanCard(
+    BuildContext context,
+    WidgetRef ref,
+    bool isResetting,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SettingsSurface(
+      padding: EdgeInsets.zero,
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+
+        leading: SettingsIconBox(
+          icon: Icons.restart_alt_rounded,
+          color: scheme.onErrorContainer,
+          background: scheme.errorContainer,
+        ),
+
+        title: const Text(
+          'Reset Rencana',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+
+        subtitle: const Text(
+          'Mulai pembagian gaji dari awal',
+        ),
+
+        trailing: isResetting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(
+                Icons.chevron_right_rounded,
+              ),
+
+        onTap: isResetting
+            ? null
+            : () {
+                _confirmResetPlan(
+                  context,
+                  ref,
+                );
+              },
+      ),
+    );
+  }
+
+  // ========================================
+  // 8. PRIVACY & SECURITY
+  // ========================================
+
+  Widget _buildPrivacySection(
+    BuildContext context,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SettingsSurface(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+
+            leading: SettingsIconBox(
+              icon: Icons.lock_outline_rounded,
+              color: scheme.onPrimaryContainer,
+              background: scheme.primaryContainer,
+            ),
+
+            title: const Text(
+              'Penyimpanan Lokal',
+            ),
+
+            subtitle: const Text(
+              'Data disimpan di perangkat',
+            ),
+          ),
+
+          const Divider(
+            height: 1,
+            indent: 16,
+            endIndent: 16,
+          ),
+
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+
+            leading: SettingsIconBox(
+              icon: Icons.verified_user_outlined,
+              color: scheme.onPrimaryContainer,
+              background: scheme.primaryContainer,
+            ),
+
+            title: const Text(
+              'Keamanan Data',
+            ),
+
+            subtitle: const Text(
+              'Hindari menyimpan PIN '
+              'atau kata sandi',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================
+  // 9. ABOUT FINPLAN
+  // ========================================
+
+  Widget _buildAboutSection(
+    BuildContext context,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return SettingsSurface(
+      child: Row(
+        children: [
+          SettingsIconBox(
+            icon: Icons.favorite_outline_rounded,
+            color: scheme.onPrimaryContainer,
+            background: scheme.primaryContainer,
+          ),
+
+          const SizedBox(width: 12),
+
+          const Expanded(
+            child: Text(
+              'FinPlan membantu merencanakan, '
+              'mencatat, dan mencapai '
+              'tujuan keuanganmu.',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ========================================
+  // 10. MAIN BUILD
+  // ========================================
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(appSettingsProvider);
-    final ui = ref.watch(settingsUiProvider);
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final settings = ref.watch(
+      appSettingsProvider,
+    );
+
+    final ui = ref.watch(
+      settingsUiProvider,
+    );
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -467,96 +811,40 @@ class SettingsPage extends ConsumerWidget {
         16,
         32,
       ),
+
       children: [
+        // ==================================
+        // PAGE HEADER
+        // ==================================
+
         Text(
           'Pengaturan',
           style: theme.textTheme.headlineSmall
               ?.copyWith(
-            fontWeight: FontWeight.w900,
-          ),
+                fontWeight: FontWeight.w900,
+              ),
         ),
 
         const SizedBox(height: 5),
 
         Text(
-          'Atur tampilan yang paling nyaman untukmu.',
+          'Atur tampilan, keamanan, '
+          'dan data keuangan FinPlan.',
           style: theme.textTheme.bodyMedium
               ?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
+                color: scheme.onSurfaceVariant,
+              ),
         ),
 
         const SizedBox(height: 22),
 
-        // --------------------------------------
-        // FINPLAN HEADER
-        // --------------------------------------
-
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(24),
-            gradient: const LinearGradient(
-              colors: [
-                _darkGreen,
-                _green,
-              ],
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: Colors.white
-                      .withValues(alpha: 0.16),
-                  borderRadius:
-                      BorderRadius.circular(17),
-                ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-              ),
-
-              const SizedBox(width: 14),
-
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'FinPlan',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 22,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Your Personal Finance Partner',
-                      style: TextStyle(
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildFinPlanHeader(context),
 
         const SizedBox(height: 26),
 
-        // --------------------------------------
-        // THEME
-        // --------------------------------------
+        // ==================================
+        // SECTION 1: THEME
+        // ==================================
 
         _sectionTitle(
           context,
@@ -572,9 +860,9 @@ class SettingsPage extends ConsumerWidget {
 
         const SizedBox(height: 25),
 
-        // --------------------------------------
-        // ACCESSIBILITY
-        // --------------------------------------
+        // ==================================
+        // SECTION 2: ACCESSIBILITY
+        // ==================================
 
         _sectionTitle(
           context,
@@ -589,151 +877,72 @@ class SettingsPage extends ConsumerWidget {
 
         const SizedBox(height: 25),
 
-        // --------------------------------------
-        // DATA & PLANNING
-        // --------------------------------------
+        // ==================================
+        // SECTION 3: DATA MANAGEMENT
+        // ==================================
 
         _sectionTitle(
           context,
           'Data & Perencanaan',
         ),
 
-        SettingsSurface(
-          padding: EdgeInsets.zero,
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
-            leading: SettingsIconBox(
-              icon: Icons.restart_alt_rounded,
-              color: scheme.onErrorContainer,
-              background: scheme.errorContainer,
-            ),
-            title: const Text(
-              'Reset Rencana',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            subtitle: const Text(
-              'Mulai pembagian gaji dari awal',
-            ),
-            trailing: ui.isResettingPlan
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Icon(
-                    Icons.chevron_right_rounded,
-                  ),
-            onTap: ui.isResettingPlan
-                ? null
-                : () => _confirmResetPlan(
-                      context,
-                      ref,
-                    ),
-          ),
+        // ==================================
+        // EXPORT TRANSACTIONS
+        // ==================================
+
+        const TransactionExportCard(),
+
+        const SizedBox(height: 12),
+
+        // ==================================
+        // IMPORT TRANSACTIONS
+        // ==================================
+
+        const TransactionImportCard(),
+
+        const SizedBox(height: 12),
+
+        // ==================================
+        // RESET FINANCIAL PLAN
+        // ==================================
+
+        _buildResetPlanCard(
+          context,
+          ref,
+          ui.isResettingPlan,
         ),
 
         const SizedBox(height: 25),
 
-        // --------------------------------------
-        // PRIVACY & SECURITY
-        // --------------------------------------
+        // ==================================
+        // SECTION 4: PRIVACY
+        // ==================================
 
         _sectionTitle(
           context,
           'Privasi & Keamanan',
         ),
 
-        SettingsSurface(
-          padding: EdgeInsets.zero,
-          child: Column(
-            children: [
-              ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                leading: SettingsIconBox(
-                  icon: Icons.lock_outline_rounded,
-                  color: scheme.onPrimaryContainer,
-                  background: scheme.primaryContainer,
-                ),
-                title: const Text(
-                  'Penyimpanan Lokal',
-                ),
-                subtitle: const Text(
-                  'Data disimpan di perangkat',
-                ),
-              ),
-
-              const Divider(
-                height: 1,
-                indent: 16,
-                endIndent: 16,
-              ),
-
-              ListTile(
-                contentPadding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                leading: SettingsIconBox(
-                  icon: Icons.verified_user_outlined,
-                  color: scheme.onPrimaryContainer,
-                  background: scheme.primaryContainer,
-                ),
-                title: const Text(
-                  'Keamanan Data',
-                ),
-                subtitle: const Text(
-                  'Hindari menyimpan PIN atau kata sandi',
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildPrivacySection(context),
 
         const SizedBox(height: 25),
 
-        // --------------------------------------
-        // ABOUT FINPLAN
-        // --------------------------------------
+        // ==================================
+        // SECTION 5: ABOUT
+        // ==================================
 
         _sectionTitle(
           context,
           'Tentang FinPlan',
         ),
 
-        SettingsSurface(
-          child: Row(
-            children: [
-              SettingsIconBox(
-                icon: Icons.favorite_outline_rounded,
-                color: scheme.onPrimaryContainer,
-                background: scheme.primaryContainer,
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'FinPlan membantu merencanakan, '
-                  'mencatat, dan mencapai tujuan keuanganmu.',
-                ),
-              ),
-            ],
-          ),
-        ),
+        _buildAboutSection(context),
 
         const SizedBox(height: 24),
+
+        // ==================================
+        // FOOTER
+        // ==================================
 
         Center(
           child: Text(
@@ -741,8 +950,8 @@ class SettingsPage extends ConsumerWidget {
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall
                 ?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+                  color: scheme.onSurfaceVariant,
+                ),
           ),
         ),
       ],
