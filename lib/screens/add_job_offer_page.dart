@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -26,9 +27,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   static const Color softGreen = Color(0xFFE9F8F0);
   static const Color muted = Color(0xFF84958C);
 
-  final GlobalKey<FormState> _formKey =
-      GlobalKey<FormState>();
-
   late final JobOffer _baseOffer;
 
   late final Map<String, TextEditingController> _fields;
@@ -38,6 +36,9 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   late int _environmentRating;
 
   bool _isSubmitting = false;
+  // Simpan status tiap panel secara eksplisit agar tidak bergantung pada
+  // animasi ExpansionTile saat form diperbarui.
+  final Map<String, bool> _expandedSections = <String, bool>{};
 
   bool get _isEditing => widget.initialOffer != null;
 
@@ -253,12 +254,9 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
     FocusScope.of(context).unfocus();
 
-    final valid =
-        _formKey.currentState?.validate() ?? false;
-
     final error = _validateAllInputs();
 
-    if (!valid || error != null) {
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -324,25 +322,17 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   Widget _textInput(
     String label,
     String key, {
-    bool required = false,
     int maxLines = 1,
     String? hint,
   }) {
     return _inputWrapper(
       label: label,
-      child: TextFormField(
+      child: TextField(
+        key: ValueKey('job_offer_field_$key'),
         controller: _fields[key],
         maxLines: maxLines,
         textCapitalization: TextCapitalization.sentences,
         decoration: _inputDecoration(hint: hint),
-        validator: (value) {
-          if (required &&
-              (value == null || value.trim().isEmpty)) {
-            return '$label wajib diisi.';
-          }
-
-          return null;
-        },
         onChanged: (_) => setState(() {}),
       ),
     );
@@ -350,26 +340,22 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
   Widget _moneyInput(
     String label,
-    String key, {
-    bool requiredPositive = false,
-  }) {
+    String key,
+  ) {
     return _inputWrapper(
       label: label,
-      child: TextFormField(
+      child: TextField(
+        key: ValueKey('job_offer_field_$key'),
         controller: _fields[key],
         keyboardType: TextInputType.number,
+        maxLines: 1,
+        expands: false,
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
         ],
         decoration: _inputDecoration(
           prefix: 'Rp ',
         ),
-        validator: (_) {
-          if (requiredPositive && _money(key) <= 0) {
-            return 'Masukkan nominal lebih dari Rp0.';
-          }
-          return null;
-        },
         onChanged: (_) => setState(() {}),
       ),
     );
@@ -379,11 +365,11 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     String label,
     String key, {
     String? suffix,
-    bool requiredPositive = false,
   }) {
     return _inputWrapper(
       label: label,
-      child: TextFormField(
+      child: TextField(
+        key: ValueKey('job_offer_field_$key'),
         controller: _fields[key],
         keyboardType:
             const TextInputType.numberWithOptions(
@@ -397,12 +383,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
         decoration: _inputDecoration(
           suffix: suffix,
         ),
-        validator: (_) {
-          if (requiredPositive && _number(key) <= 0) {
-            return 'Nilai harus lebih dari nol.';
-          }
-          return null;
-        },
         onChanged: (_) => setState(() {}),
       ),
     );
@@ -494,8 +474,10 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     bool expanded = false,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final isExpanded = _expandedSections[title] ?? expanded;
 
     return Container(
+      key: ValueKey('job_offer_section_$title'),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -507,49 +489,75 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        key: PageStorageKey(title),
-        initiallyExpanded: expanded,
-        tilePadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 5,
-        ),
-        childrenPadding: const EdgeInsets.fromLTRB(
-          17,
-          6,
-          17,
-          20,
-        ),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        leading: Container(
-          width: 39,
-          height: 39,
-          decoration: BoxDecoration(
-            color: softGreen,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: darkGreen,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        expandedCrossAxisAlignment:
-            CrossAxisAlignment.stretch,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < children.length; i++) ...[
-            children[i],
-            if (i < children.length - 1)
-              const SizedBox(height: 14),
-          ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                setState(() {
+                  _expandedSections[title] = !isExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 39,
+                      height: 39,
+                      decoration: BoxDecoration(
+                        color: softGreen,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: darkGreen,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      isExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: isExpanded ? green : scheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (isExpanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(17, 6, 17, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    children[i],
+                    if (i < children.length - 1)
+                      const SizedBox(height: 14),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -904,9 +912,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
             centerTitle: false,
           ),
 
-          body: Form(
-            key: _formKey,
-            child: ListView(
+          body: ListView(
               padding: const EdgeInsets.fromLTRB(
                 17,
                 15,
@@ -971,7 +977,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                     _textInput(
                       'Nama posisi',
                       'title',
-                      required: true,
                       hint: 'Contoh: Backend Developer',
                     ),
 
@@ -1002,14 +1007,12 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                           ? 'Gaji pokok / bulan'
                           : 'Tarif ${_salaryMode.label.toLowerCase()}',
                       'salaryRate',
-                      requiredPositive: true,
                     ),
 
                     if (_salaryMode != JobSalaryMode.monthly)
                       _numberInput(
                         'Jumlah dibayar / bulan',
                         'paidUnits',
-                        requiredPositive: true,
                       ),
 
                     _pair(
@@ -1051,7 +1054,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                         'Hari kerja / bulan',
                         'workDays',
                         suffix: 'hari',
-                        requiredPositive: true,
                       ),
                       _numberInput(
                         'Hari ke kantor / bulan',
@@ -1065,13 +1067,11 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                         'Hari kerja / minggu',
                         'daysPerWeek',
                         suffix: 'hari',
-                        requiredPositive: true,
                       ),
                       _numberInput(
                         'Jam kerja / hari',
                         'hoursPerDay',
                         suffix: 'jam',
-                        requiredPositive: true,
                       ),
                     ),
                   ],
@@ -1212,7 +1212,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
                 const SizedBox(height: 16),
               ],
-            ),
           ),
 
           // TOMBOL SIMPAN
@@ -1263,3 +1262,6 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     );
   }
 }
+
+
+
