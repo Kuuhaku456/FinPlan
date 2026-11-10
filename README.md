@@ -6,19 +6,38 @@
 
 ![Flutter](https://img.shields.io/badge/Flutter-Mobile%20App-02569B?logo=flutter&logoColor=white)
 ![Dart](https://img.shields.io/badge/Dart-Language-0175C2?logo=dart&logoColor=white)
+![Android](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)
 ![Status](https://img.shields.io/badge/Status-Active%20Development-059669)
-![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white)
 
-FinPlan adalah aplikasi perencanaan keuangan pribadi berbasis **Flutter** yang membantu pengguna mengelola uang secara lebih terarah. Aplikasi ini dirancang agar fleksibel: kebutuhan, jadwal kerja, transportasi, dan target keuangan setiap orang bisa berbeda.
+FinPlan adalah aplikasi pengelolaan dan perencanaan keuangan pribadi berbasis **Flutter**. Fokusnya bukan hanya mencatat uang masuk dan keluar, tetapi juga membantu pengguna membuat anggaran yang sesuai dengan kehidupan sehari-hari, menabung untuk berbagai tujuan, dan mengevaluasi pilihan keuangan.
 
-FinPlan tidak hanya mencatat pengeluaran, tetapi juga membantu menjawab pertanyaan seperti:
+Setiap orang mempunyai rutinitas berbeda. Karena itu, anggaran makan, perjalanan, kebutuhan tambahan, dan target tabungan di FinPlan dibuat **fleksibel dan dapat disesuaikan**.
 
-- *Apakah penghasilanku cukup untuk kebutuhan setiap bulan?*
-- *Berapa uang yang sebaiknya disiapkan untuk makan, transportasi, tagihan, dan tabungan?*
-- *Sudah sejauh mana progres target tabunganku?*
-- *Apakah tawaran pekerjaan baru sesuai dengan kebutuhan hidup dan waktuku?*
+> **Status:** proyek masih dalam pengembangan dan pengujian. Informasi fitur di bawah menggambarkan implementasi yang tersedia di source code; belum seluruh alur diverifikasi pada semua perangkat Android. Aplikasi belum dinyatakan siap rilis publik.
 
-> **Status proyek:** masih dalam pengembangan. Fitur, desain, dan struktur kode dapat berubah seiring pembaruan.
+---
+
+## 🆕 Pembaruan Terbaru — November 2026
+
+Pembaruan ini mencakup pengembangan fitur sekaligus penataan ulang arsitektur project.
+
+| Area | Perubahan |
+| --- | --- |
+| **Struktur project** | Mulai memisahkan modul **Dashboard, Planner, dan Settings** ke dalam `lib/features/`, masing-masing dengan bagian `presentation/` dan `providers/`. |
+| **Manajemen state** | Mulai menggunakan **Riverpod** (`Notifier`, `ConsumerWidget`, dan provider) untuk memisahkan UI dengan pengelolaan data. Beberapa `ChangeNotifier` lama masih digunakan selama migrasi. |
+| **Dashboard** | Komponen alokasi anggaran, tren transaksi bulanan, ringkasan pengeluaran, dan tabungan ditata menjadi widget yang lebih mudah dikelola. |
+| **Planner** | Form perencanaan dipisahkan menurut langkah: profil dan pemasukan, kebutuhan, makan harian, transportasi, tabungan, serta ringkasan. |
+| **Transaksi** | Penguatan pengelolaan daftar transaksi, ringkasan periode, dan integrasi statistik transaksi untuk dashboard. |
+| **Kantong Tabungan** | Pemisahan state tampilan dan logika data; tetap mendukung target, setoran, penarikan, serta arsip/pulihkan. |
+| **Tawaran Kerja** | Form **Tawaran Baru** dibuat lebih terstruktur dalam bagian penghasilan, jadwal kerja, transportasi, biaya tambahan, dan preferensi pribadi. Data tawaran dapat dikelola dan disimpan secara lokal. |
+| **Tampilan & Settings** | Pengaturan tema, skala teks, dan komponen halaman pengaturan mulai dipisahkan dari kode halaman utama. |
+| **Pengujian** | Menambahkan/mengembangkan pengujian logika rencana, anggaran, transaksi, tren bulanan, serta ringkasan tabungan. |
+
+### Catatan pengembangan
+
+- **Migrasi bertahap:** folder `screens/`, `state/`, dan `widgets/` belum dihapus. Sebagian halaman sudah memiliki implementasi/modul baru di `features/` atau versi Riverpod.
+- **Tawaran Baru:** komponen input berbentuk panel yang dapat dibuka/tutup sedang diuji untuk mengatasi *runtime assertion* saat panel dibuka, terutama pada layar Android. Hasil `flutter analyze` atau `flutter test` yang lolos tidak otomatis menjamin masalah UI ini telah selesai.
+- **Android release:** proses build APK perlu memastikan SDK Android dan plugin kompatibel, khususnya `compileSdk` sesuai kebutuhan plugin. APK yang berhasil dibangun tetap perlu diuji secara langsung di perangkat.
 
 ---
 
@@ -26,230 +45,320 @@ FinPlan tidak hanya mencatat pengeluaran, tetapi juga membantu menjawab pertanya
 
 ### 🏠 1. Dashboard Keuangan
 
-- Ringkasan kondisi keuangan dan rencana anggaran bulanan.
-- Visualisasi alokasi anggaran menggunakan diagram donat.
-- Informasi pemasukan, kebutuhan, tabungan, dan dana cadangan.
-- Tampilan ringkas untuk membantu pengguna memahami pembagian uang.
+- Ringkasan pemasukan, anggaran, pengeluaran, dan tabungan.
+- Diagram pembagian gaji/anggaran untuk membantu membaca alokasi dana.
+- Kartu ringkasan pengeluaran dan tren transaksi bulanan.
+- Ringkasan progres kantong tabungan.
 
 ### 🧩 2. Planner — Rencana & Anggaran
 
-Buat perencanaan yang mengikuti rutinitasmu, bukan sebaliknya.
+Perencanaan keuangan yang menyesuaikan rutinitas pengguna:
 
-- **Penghasilan:** gaji utama serta pemasukan tambahan dengan frekuensi berbeda.
-- **Kebutuhan rutin:** tempat tinggal, tagihan, kebutuhan pribadi, dan kebutuhan khusus buatan pengguna.
-- **Anggaran makan:** dapat disesuaikan untuk setiap hari, Senin sampai Minggu.
-- **Transportasi:** mendukung rencana perjalanan pergi dan pulang dengan beberapa moda transportasi.
-- **Tabungan dan cadangan:** tetapkan jumlah tabungan serta persentase dana cadangan.
-- **Ringkasan pembagian gaji:** melihat kebutuhan minimum, anggaran ideal, dan selisih rencana.
+- **Pendapatan:** gaji utama dan pemasukan tambahan.
+- **Kebutuhan:** pengeluaran rutin dan kategori kebutuhan khusus.
+- **Makan:** nominal dapat berbeda untuk setiap hari, Senin–Minggu.
+- **Transportasi:** rencana perjalanan pergi dan pulang, termasuk kombinasi beberapa moda.
+- **Tabungan:** target menabung serta dana cadangan dalam rencana keuangan.
+- **Pembagian gaji:** ringkasan alokasi dan sisa dana berdasarkan input pengguna.
 
 ### 💸 3. Pencatatan Transaksi
 
-- Catat **pemasukan** dan **pengeluaran**.
-- Tambahkan tanggal, nominal Rupiah, kategori/sumber dana, dan keterangan.
-- Kelola sumber dana seperti bank, dompet digital, atau tunai.
-- Lihat ringkasan transaksi berdasarkan periode.
-- Edit dan hapus transaksi dengan konfirmasi.
-- Muat riwayat transaksi secara bertahap agar daftar tetap nyaman digunakan.
+- Menambahkan **pemasukan** dan **pengeluaran**, dengan nominal Rupiah dan tanggal transaksi.
+- Menentukan kategori, sumber dana (bank, dompet digital, tunai, atau akun tambahan), dan catatan.
+- Melihat ringkasan transaksi sesuai periode/bulan.
+- Mengedit dan menghapus transaksi dengan konfirmasi.
+- Menampilkan daftar panjang secara bertahap (*pagination*).
+- Menggunakan **SQLite** untuk penyimpanan transaksi pada perangkat.
 
 ### 🎯 4. Kantong Tabungan
 
-Kelola beberapa tujuan menabung dalam satu tempat, misalnya dana darurat, pendidikan, perjalanan, atau kebutuhan masa depan.
+- Membuat beberapa target tabungan dengan nama, emoji, deskripsi, target nominal, dan tenggat opsional.
+- Melihat persentase progres setiap target.
+- Menambah dan mengambil uang secara manual.
+- Menelusuri riwayat pergerakan saldo.
+- Mengarsipkan dan memulihkan kantong yang tidak aktif.
 
-- Buat kantong dengan nama, emoji, deskripsi, dan nominal target.
-- Tentukan tenggat waktu jika diperlukan.
-- Pantau progres tabungan.
-- Catat penambahan atau pengambilan dana secara manual.
-- Lihat riwayat pergerakan saldo kantong.
-- Arsipkan dan pulihkan kantong yang tidak aktif.
+### 🧮 5. Simulasi Tawaran Kerja — *Is This Job Worth It?*
 
-### 🧮 5. Kalkulator Gaji — *Is This Job Worth It?*
+Membantu pengguna menganalisis tawaran pekerjaan berdasarkan data yang diisi:
 
-Simulasikan tawaran pekerjaan berdasarkan **penghasilan, biaya bekerja, kebutuhan hidup, waktu, dan preferensi pribadi**.
+1. **Penghasilan:** gaji, pemasukan lain, tunjangan, atau potongan.
+2. **Jadwal kerja:** jumlah hari bekerja, kehadiran di kantor, dan waktu kerja.
+3. **Transportasi:** ongkos, jarak, serta durasi perjalanan.
+4. **Biaya tambahan:** makan saat bekerja, parkir, dan kebutuhan lainnya.
+5. **Kebutuhan hidup:** dibandingkan dengan rencana pengeluaran.
+6. **Preferensi:** target uang tersisa, kenyamanan perjalanan, prospek kerja, dan faktor pribadi.
 
-Pengguna dapat mengisi:
+Hasil simulasi dapat menampilkan penilaian **Tier S–D**:
 
-1. **Penghasilan:** pembayaran bulanan, harian, per jam, atau per sesi; tunjangan dan potongan.
-2. **Jadwal:** hari kerja, hari ke kantor, serta jam kerja.
-3. **Perjalanan:** ongkos, durasi, dan jarak pergi-pulang.
-4. **Biaya kerja tambahan:** misalnya makan ekstra, parkir, atau kebutuhan kerja lain.
-5. **Kebutuhan hidup:** otomatis mengambil anggaran dari Planner atau diisi manual.
-6. **Prioritas pribadi:** target uang tambahan, batas nyaman perjalanan, prospek karier, dan kenyamanan kerja.
+| Tier | Interpretasi |
+| :---: | --- |
+| **S** | Sangat sesuai dengan target yang dimasukkan. |
+| **A** | Menarik, dengan sebagian besar kebutuhan terpenuhi. |
+| **B** | Cukup layak, masih ada kompromi. |
+| **C** | Perlu dipertimbangkan kembali. |
+| **D** | Kurang sesuai dengan kebutuhan/prioritas. |
 
-#### Sistem Penilaian Tier S–D
+Pada rancangan penilaian, kebutuhan dan target keuangan memperoleh bobot terbesar; waktu perjalanan, jam kerja, pengembangan karier, dan kenyamanan juga diperhitungkan.
 
-| Tier | Makna | Gambaran Umum |
-| :---: | --- | --- |
-| 🟢 **S** | Sangat worth it | Sangat sesuai dengan kebutuhan dan prioritas pengguna. |
-| 🟩 **A** | Worth it | Menarik dengan sebagian besar kebutuhan terpenuhi. |
-| 🔵 **B** | Cukup worth it | Layak dipertimbangkan, tetapi masih ada kompromi. |
-| 🟠 **C** | Perlu dipikirkan | Ada kebutuhan atau target penting yang belum optimal. |
-| 🔴 **D** | Kurang worth it | Terdapat risiko atau ketidaksesuaian yang perlu diperhatikan. |
-
-Penilaian simulasi mempertimbangkan lima aspek:
-
-| Aspek | Bobot |
-| --- | ---: |
-| Kemampuan memenuhi kebutuhan dan target keuangan | **50%** |
-| Waktu perjalanan | **20%** |
-| Beban jam kerja | **10%** |
-| Peluang berkembang | **10%** |
-| Kenyamanan pekerjaan | **10%** |
-
-Terdapat aturan tambahan agar hasil tidak terlalu optimistis ketika biaya bekerja atau kebutuhan pokok tidak tertutup. Pengguna juga bisa melihat **alasan di balik tier** dan rincian perhitungannya.
-
-> **Penting:** Tier S–D adalah indikator simulasi berdasarkan data dan preferensi yang dimasukkan pengguna, **bukan penilaian objektif, jaminan kelayakan pekerjaan, ataupun nasihat keuangan profesional**.
+> **Disclaimer:** peringkat ini adalah **hasil simulasi**, bukan jaminan bahwa suatu pekerjaan layak atau aman, dan tidak menggantikan pertimbangan pribadi maupun nasihat profesional.
 
 ### 💼 6. Pengelolaan Tawaran Kerja
 
-- Simpan dan kelola informasi tawaran pekerjaan.
-- Lihat daftar tawaran yang pernah dicatat.
-- Edit atau hapus data tawaran sesuai kebutuhan.
+- Menyimpan beberapa tawaran pekerjaan di perangkat.
+- Melihat kembali, memperbarui, dan menghapus tawaran.
+- Mengarsipkan dan memulihkan tawaran untuk menjaga daftar tetap rapi.
 
 ### 📆 7. Simulasi Sisa Uang
 
-Membantu memperkirakan penggunaan uang yang tersisa hingga tanggal gajian berikutnya, termasuk pertimbangan kebutuhan makan, transportasi, dan kebutuhan lain.
+Menghitung perkiraan penggunaan saldo tersisa sampai tanggal gajian berikutnya, dengan pertimbangan makan, transportasi, dan kebutuhan tambahan.
 
-### ⚙️ 8. Personalisasi & Aksesibilitas
+### ⚙️ 8. Profil, Tema, dan Aksesibilitas
 
-- **Light Mode:** selalu menggunakan tema terang.
-- **Dark Mode:** selalu menggunakan tema gelap.
-- **Ikuti Sistem HP:** menyesuaikan tema perangkat secara otomatis.
-- **Ukuran teks fleksibel:** dapat diperbesar melalui pengaturan aplikasi.
-- Desain responsif untuk layar ponsel serta ukuran tulisan yang lebih besar.
-- Pengaturan profil dan foto profil yang disimpan secara lokal.
+- Profil pengguna dan foto profil lokal.
+- **Light Mode**, **Dark Mode**, atau **mengikuti tema perangkat**.
+- Pengaturan ukuran teks untuk membantu keterbacaan.
+- Desain antarmuka hijau khas FinPlan.
 
 ---
 
-## 📱 Alur Penggunaan
+## 📱 Alur dan Navigasi
 
-```mermaid
-flowchart TD
-    A[Welcome & Onboarding] --> B[Isi Profil dan Kebutuhan]
-    B --> C[Dashboard FinPlan]
-    C --> D[Rencana & Anggaran]
-    C --> E[Catat Transaksi]
-    C --> F[Kantong Tabungan]
-    D --> G[Kalkulator Gaji]
-    G --> H[Analisis Tier S–D]
+1. **Welcome Slides** ditampilkan saat pertama kali menggunakan aplikasi.
+2. **Onboarding** mengumpulkan informasi awal untuk penyusunan rencana keuangan.
+3. Pengguna masuk ke **Dashboard** dan dapat melanjutkan ke fitur lain.
+
+Navigasi utama aplikasi menggunakan empat tab:
+
+| Tab | Fungsi |
+| --- | --- |
+| **Home** | Dashboard, informasi anggaran, pengeluaran, dan tabungan. |
+| **Planner** | Pembagian gaji, rencana kebutuhan, kantong tabungan, tawaran kerja, dan simulasi sisa uang. |
+| **Transaksi** | Pemasukan, pengeluaran, riwayat, dan ringkasan transaksi. |
+| **Profil** | Data pengguna, foto profil, dan akses menuju **Settings**. |
+
+---
+
+## 🏗️ Arsitektur dan Struktur Project
+
+FinPlan sedang beralih dari struktur berdasarkan jenis file (`screens/`, `state/`, `widgets/`) menuju struktur **berdasarkan fitur** (`features/`). Tujuannya agar layar, state, dan komponen untuk fitur yang sama berada lebih dekat satu sama lain.
+
+### Struktur `lib/` terbaru
+
+```text
+lib/
+├── main.dart                         # Entry point, inisialisasi, dan navigasi
+├── core/
+│   ├── constants/
+│   │   └── storage_keys.dart         # Kunci penyimpanan aplikasi
+│   ├── theme/
+│   │   ├── app_colors.dart           # Palet warna
+│   │   └── app_theme.dart            # Light/Dark Theme
+│   └── money.dart                    # Utilitas nominal/Rupiah
+├── data/
+│   ├── plan_repository.dart          # Simpan dan baca rencana
+│   ├── transaction_repository.dart   # Akses database transaksi
+│   ├── savings_repository.dart       # Penyimpanan kantong tabungan
+│   └── job_offer_repository.dart     # Penyimpanan tawaran pekerjaan
+├── models/
+│   ├── finance_plan.dart
+│   ├── finance_transaction.dart
+│   ├── savings_goal.dart
+│   └── job_offer.dart
+├── features/                          # Modul yang sudah mulai dipisah
+│   ├── dashboard/
+│   │   ├── presentation/
+│   │   │   ├── dashboard_page.dart
+│   │   │   ├── finance_shell.dart
+│   │   │   └── widgets/
+│   │   └── providers/
+│   ├── planner/
+│   │   ├── presentation/
+│   │   │   ├── planner_page.dart
+│   │   │   ├── planner_hub_page.dart
+│   │   │   ├── allocation_page.dart
+│   │   │   ├── plan_editor.dart
+│   │   │   └── widgets/             # Step form dan ringkasan
+│   │   └── providers/
+│   └── settings/
+│       ├── presentation/
+│       │   ├── settings_page.dart
+│       │   └── widgets/
+│       └── providers/
+├── screens/                            # Halaman utama dan modul lama
+│   ├── welcome_slides_page.dart
+│   ├── profile_page.dart
+│   ├── transactions_page.dart
+│   ├── savings_page.dart
+│   ├── savings_detail_page.dart
+│   ├── jobs_offer_page.dart
+│   ├── add_job_offer_page.dart
+│   ├── sisa_uang_page.dart
+│   └── ...
+├── state/                              # Controller dan notifier bersama
+│   ├── plan_controller.dart
+│   ├── finance_plan_notifier.dart
+│   ├── transaction_controller.dart
+│   ├── transaction_notifier.dart
+│   ├── savings_controller.dart
+│   ├── savings_notifier.dart
+│   ├── job_offer_controller.dart
+│   └── ...
+└── widgets/                            # Widget lintas fitur / lama
+    ├── plan_editor.dart
+    ├── salary_calculator.dart
+    ├── savings_overview_card.dart
+    ├── monthly_expense_trend_card.dart
+    └── ...
 ```
 
-Navigasi utama aplikasi terdiri dari **Home**, **Planner**, **Transaksi**, dan **Profil**. Pengaturan aplikasi dapat diakses melalui bagian profil.
+> **Perhatian:** struktur ini mencerminkan berkas yang tersedia pada versi pengembangan saat dokumentasi diperbarui. Folder `features/` dan `screens/` masih berjalan berdampingan; beberapa file alternatif/migrasi dapat ada hingga refaktor selesai. Periksa struktur branch yang sedang digunakan sebelum memindahkan atau menghapus file.
+
+### Tanggung jawab folder
+
+| Folder | Tanggung jawab |
+| --- | --- |
+| `core/` | Konfigurasi bersama, warna, tema, utilitas, dan konstanta. |
+| `models/` | Representasi data dan aturan dasar entitas. |
+| `data/` | Membaca/menulis data ke SQLite atau penyimpanan lokal. |
+| `features/<nama>/presentation/` | Halaman serta widget khusus suatu fitur. |
+| `features/<nama>/providers/` | Provider dan state khusus suatu fitur (Riverpod). |
+| `screens/` | Halaman yang belum atau tidak dipindahkan ke modul `features/`. |
+| `state/` | Controller lama dan notifier bersama selama migrasi. |
+| `widgets/` | Widget reusable dan komponen yang belum dimigrasikan. |
+| `test/` | Unit test dan widget/integration-style test yang dijalankan dengan `flutter test`. |
+
+### Contoh pengujian
+
+```text
+test/
+├── finance_plan_notifier_test.dart
+├── plan_editor_notifier_test.dart
+├── expense_budget_metrics_test.dart
+├── monthly_transaction_trends_test.dart
+├── savings_overview_integration_test.dart
+└── transactions_dashboard_integration_test.dart
+```
+
+Nama file pengujian dapat bertambah seiring penambahan fitur.
+
+---
 
 ## 🛠️ Teknologi
 
 | Teknologi | Penggunaan |
 | --- | --- |
-| **Flutter & Dart** | Antarmuka dan logika aplikasi seluler. |
-| **Material Design 3** | Komponen dan sistem tema terang/gelap. |
-| **SQLite (`sqflite`)** | Penyimpanan transaksi di perangkat. |
-| **Shared Preferences** | Penyimpanan rencana, preferensi, dan beberapa data aplikasi lainnya. |
-| **Image Picker** | Memilih foto profil dari perangkat. |
-| **CustomPainter** | Visualisasi alokasi anggaran di dashboard. |
+| **Flutter + Dart** | Aplikasi Android dan antarmuka pengguna. |
+| **Material Design 3** | Komponen UI, sistem warna, dan tema. |
+| **Flutter Riverpod** | Pengelolaan state pada modul yang sedang direfaktor. |
+| **ChangeNotifier** | Controller lama yang masih dipakai dalam masa transisi. |
+| **SQLite (`sqflite`)** | Penyimpanan transaksi lokal. |
+| **Shared Preferences** | Menyimpan preferensi dan sejumlah data lokal. |
+| **`intl` dan utilitas Rupiah** | Format nominal dan tanggal. |
+| **Image Picker** | Memilih foto profil. |
+| **Flutter Test** | Unit test dan pengujian widget. |
 
-### Struktur Kode Utama
-
-```text
-lib/
-├── main.dart                # Inisialisasi dan navigasi aplikasi
-├── core/                   # Utilitas, termasuk format Rupiah
-├── data/                   # Repository dan akses data lokal
-├── models/                 # Model data keuangan
-├── screens/                # Halaman-halaman aplikasi
-├── state/                  # Controller dan state aplikasi
-└── widgets/                # Komponen dan formulir yang digunakan ulang
-```
+> Dependensi dan versinya mengikuti `pubspec.yaml` serta `pubspec.lock` pada branch repository. Daftar ini merupakan ringkasan, bukan pengganti file konfigurasi tersebut.
 
 ---
 
-## 🚀 Menjalankan Project
+## 🚀 Instalasi dan Menjalankan Aplikasi
 
 ### Persyaratan
 
-- Flutter SDK dan Dart SDK.
+- Flutter SDK, Dart SDK, dan Android SDK yang telah dikonfigurasi.
 - VS Code atau Android Studio.
-- Android SDK yang telah dikonfigurasi.
-- Emulator Android atau perangkat Android untuk pengujian.
+- Emulator atau perangkat Android untuk menjalankan aplikasi.
 
-### Instalasi
+### Langkah-langkah
 
-1. Clone repository:
+```bash
+git clone https://github.com/Kuuhaku456/FinPlan.git
+cd FinPlan
+flutter pub get
+flutter doctor
+flutter run
+```
 
-   ```bash
-   git clone https://github.com/Kuuhaku456/FinPlan.git
-   ```
-
-2. Masuk ke folder project:
-
-   ```bash
-   cd FinPlan
-   ```
-
-3. Instal dependensi:
-
-   ```bash
-   flutter pub get
-   ```
-
-4. Periksa lingkungan Flutter:
-
-   ```bash
-   flutter doctor
-   ```
-
-5. Jalankan aplikasi pada emulator atau perangkat:
-
-   ```bash
-   flutter run
-   ```
-
-### Pemeriksaan Kode
+### Pemeriksaan dan pengujian
 
 ```bash
 flutter analyze
+flutter test
 ```
 
-> Panduan di atas mengasumsikan seluruh folder project Flutter, termasuk `pubspec.yaml` dan konfigurasi Android, sudah tersedia di repository.
+Menjalankan salah satu berkas tes:
+
+```bash
+flutter test test/finance_plan_notifier_test.dart
+```
+
+### Build APK untuk pengujian perangkat
+
+```bash
+flutter build apk --release
+```
+
+Jika berhasil, APK biasanya tersedia di:
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+**Catatan rilis:** APK yang dibuat untuk uji coba **belum otomatis siap dipublikasikan di Google Play**. Periksa `applicationId`, versi aplikasi, ikon, kebijakan privasi, serta **release signing** (jangan gunakan debug key untuk distribusi publik).
+
+### Troubleshooting Android build
+
+- Bila muncul pesan bahwa plugin membutuhkan **Android API 36**, pastikan SDK 36 tersedia dan cek `compileSdk` pada `android/app/build.gradle.kts`. Menaikkan `compileSdk` tidak otomatis mewajibkan perubahan `minSdk` atau `targetSdk`.
+- Jika `file_picker` atau plugin lain gagal diselesaikan oleh `flutter pub get`, periksa versi yang benar-benar tersedia dan kompatibel di `pubspec.yaml`; jangan menuliskan nomor versi yang tidak ditemukan oleh package resolver.
+- Peringatan Java/Gradle tentang *restricted native access* tidak selalu menjadi penyebab build gagal. Fokus pada blok `FAILURE: Build failed` dan pesan tugas yang benar-benar gagal.
+- Jika muncul error UI berupa kotak abu-abu/merah ketika panel **Tawaran Baru** dibuka, catat stack trace dari `flutter run` dan lakukan pengujian langsung di perangkat. Kesalahan UI tersebut berbeda dari kegagalan kompilasi APK.
 
 ---
 
-## 🔐 Data & Privasi
+## 🔐 Penyimpanan Data dan Privasi
 
-FinPlan saat ini menggunakan pendekatan **local-first**:
+FinPlan menggunakan pendekatan **local-first**:
 
-- Data transaksi disimpan dalam database lokal perangkat.
-- Rencana keuangan dan sejumlah preferensi aplikasi disimpan secara lokal.
-- Data pengguna **belum disinkronkan otomatis antarperangkat**.
-- FinPlan bukan layanan perbankan dan tidak melakukan transaksi keuangan atas nama pengguna.
+- Transaksi disimpan dalam database SQLite pada perangkat.
+- Rencana, preferensi, kantong tabungan, dan tawaran kerja menggunakan penyimpanan lokal sesuai repository masing-masing.
+- Data **belum disinkronkan otomatis** antarperangkat melalui akun cloud.
+- FinPlan bukan aplikasi perbankan dan tidak melakukan transaksi uang atas nama pengguna.
 
-Pengguna bertanggung jawab menjaga keamanan perangkat dan melakukan pencadangan sesuai kebutuhan. Hindari memasukkan PIN, password, atau data kredensial sensitif sebagai deskripsi transaksi.
+Jangan memasukkan PIN, password, atau informasi rahasia ke dalam kolom catatan. Selalu lakukan pencadangan perangkat sebelum reinstall, reset, atau pindah ponsel. Fitur ekspor/impor atau backup otomatis tidak diasumsikan tersedia sampai implementasinya diverifikasi.
 
-## 🧭 Rencana Pengembangan
+---
+
+## 🧭 Roadmap
 
 - [x] Dashboard dan pembagian anggaran.
-- [x] Planner kebutuhan yang fleksibel.
+- [x] Planner dengan kebutuhan harian dan kategori fleksibel.
 - [x] Pencatatan pemasukan dan pengeluaran.
-- [x] Kantong tabungan dan progres target.
-- [x] Kalkulator gaji dengan analisis Tier S–D.
-- [x] Light Mode, Dark Mode, dan mengikuti tema sistem.
-- [x] Pengaturan ukuran teks.
-- [ ] Pengujian lintas perangkat dan penyempurnaan aksesibilitas.
-- [ ] Mekanisme ekspor atau pencadangan data.
-- [ ] Dokumentasi rilis dan distribusi aplikasi.
+- [x] Kantong tabungan dengan riwayat dan arsip.
+- [x] Simulasi serta penyimpanan tawaran kerja.
+- [x] Tema terang, gelap, mengikuti sistem, dan skala teks.
+- [x] Mulai modularisasi `features/` dan penggunaan Riverpod.
+- [x] Menambahkan pengujian logika perencanaan dan ringkasan keuangan.
+- [ ] Menyelesaikan migrasi `screens/` dan `state/` lama secara bertahap.
+- [ ] Memastikan seluruh panel input **Tawaran Baru** berjalan normal pada perangkat Android.
+- [ ] Meningkatkan cakupan widget test, integrasi, serta uji lintas perangkat.
+- [ ] Memverifikasi alur pencadangan/ekspor data pengguna.
+- [ ] Menyiapkan `applicationId`, keystore release, dan berkas publikasi Play Store.
 
-> Checklist menggambarkan ketersediaan fitur pada source code, bukan jaminan bahwa seluruh skenario sudah selesai diuji.
+Checklist menunjukkan progres pengembangan, **bukan jaminan seluruh skenario bebas bug**.
 
-## 🤝 Kontribusi & Masukan
+---
 
-Saran fitur, laporan bug, dan masukan untuk FinPlan dapat disampaikan melalui [GitHub Issues](https://github.com/Kuuhaku456/FinPlan/issues).
+## 🤝 Kontribusi dan Masukan
 
-Proyek ini masih terus disempurnakan. Kontribusi sebaiknya diawali dengan diskusi pada Issue agar perubahan tetap sesuai arah pengembangan aplikasi.
+Laporkan bug, ide fitur, atau saran melalui [GitHub Issues](https://github.com/Kuuhaku456/FinPlan/issues). Sertakan langkah reproduksi, versi Flutter, perangkat, dan log error bila memungkinkan.
 
 ## 👨‍💻 Pengembang
 
-Dikembangkan oleh [**@Kuuhaku456**](https://github.com/Kuuhaku456).
+Dikembangkan oleh **[Filipus Adriel Manik (@Kuuhaku456)](https://github.com/Kuuhaku456)**.
 
 **FinPlan — Plan smarter. Spend wisely. Save with purpose.** 💚
 
 ---
 
-<sub>Catatan lisensi: repository ini belum menyertakan lisensi open-source. Hubungi pemilik repository untuk izin penggunaan ulang atau redistribusi kode.</sub>
+<sub>**Lisensi:** repository belum dinyatakan memiliki lisensi open-source. Hubungi pemilik repository untuk izin penggunaan ulang atau redistribusi kode.</sub>
