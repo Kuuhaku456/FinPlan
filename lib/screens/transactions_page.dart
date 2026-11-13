@@ -5,7 +5,6 @@ import '../core/money.dart';
 
 import '../models/finance_transaction.dart';
 
-import '../state/transaction_controller.dart';
 import '../state/transaction_notifier.dart';
 
 import '../features/transactions/presentation/widgets/transaction_summary_card.dart';
@@ -17,12 +16,8 @@ import 'add_transaction_page.dart';
 // =====================================================
 
 class TransactionsPage extends ConsumerStatefulWidget {
-  const TransactionsPage({
-    super.key,
-    required this.controller,
-  });
+  const TransactionsPage({super.key});
 
-  final TransactionController controller;
 
   @override
   ConsumerState<TransactionsPage> createState() {
@@ -34,21 +29,16 @@ class TransactionsPage extends ConsumerStatefulWidget {
 // TRANSACTION ACTION
 // =====================================================
 
-enum _TransactionAction {
-  edit,
-  delete,
-}
+enum _TransactionAction { edit, delete }
 
 // =====================================================
 // HISTORY ENTRY
 // =====================================================
 
 class _HistoryEntry {
-  const _HistoryEntry.date(this.date)
-      : transaction = null;
+  const _HistoryEntry.date(this.date) : transaction = null;
 
-  const _HistoryEntry.transaction(this.transaction)
-      : date = null;
+  const _HistoryEntry.transaction(this.transaction) : date = null;
 
   final DateTime? date;
   final FinanceTransaction? transaction;
@@ -58,9 +48,7 @@ class _HistoryEntry {
 // TRANSACTIONS PAGE STATE
 // =====================================================
 
-class _TransactionsPageState
-    extends ConsumerState<TransactionsPage> {
-
+class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   // =====================================================
   // COLORS
   // =====================================================
@@ -104,8 +92,7 @@ class _TransactionsPageState
   // CONTROLLERS
   // =====================================================
 
-  final ScrollController _scrollController =
-      ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
   // =====================================================
   // INITIAL STATE
@@ -120,9 +107,7 @@ class _TransactionsPageState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      ref
-          .read(transactionStateProvider.notifier)
-          .loadTransactions();
+      ref.read(transactionStateProvider.notifier).loadTransactions();
     });
   }
 
@@ -160,10 +145,7 @@ class _TransactionsPageState
         !state.isLoading &&
         !state.isLoadingMore &&
         !state.isSaving) {
-
-      ref
-          .read(transactionStateProvider.notifier)
-          .loadMore();
+      ref.read(transactionStateProvider.notifier).loadMore();
     }
   }
 
@@ -187,9 +169,7 @@ class _TransactionsPageState
   // =====================================================
 
   void _changeMonth(int offset) {
-    final currentMonth = ref
-        .read(transactionStateProvider)
-        .selectedMonth;
+    final currentMonth = ref.read(transactionStateProvider).selectedMonth;
 
     final newMonth = DateTime(
       currentMonth.year,
@@ -201,24 +181,19 @@ class _TransactionsPageState
       _scrollController.jumpTo(0);
     }
 
-    ref
-        .read(transactionStateProvider.notifier)
-        .selectMonth(newMonth);
+    ref.read(transactionStateProvider.notifier).selectMonth(newMonth);
   }
 
   // =====================================================
   // OPEN ADD / EDIT TRANSACTION
   // =====================================================
 
-  Future<void> _openTransactionForm({
-    FinanceTransaction? transaction,
-  }) async {
-
+  Future<void> _openTransactionForm({FinanceTransaction? transaction}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) {
           return AddTransactionPage(
-            controller: widget.controller,
+            
             transaction: transaction,
           );
         },
@@ -236,10 +211,7 @@ class _TransactionsPageState
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
       );
   }
 
@@ -247,16 +219,11 @@ class _TransactionsPageState
   // DELETE TRANSACTION
   // =====================================================
 
-  Future<void> _confirmDelete(
-    FinanceTransaction transaction,
-  ) async {
-
+  Future<void> _confirmDelete(FinanceTransaction transaction) async {
     final transactionId = transaction.id;
 
     if (transactionId == null) {
-      _showMessage(
-        'ID transaksi tidak ditemukan.',
-      );
+      _showMessage('ID transaksi tidak ditemukan.');
       return;
     }
 
@@ -269,9 +236,7 @@ class _TransactionsPageState
             borderRadius: BorderRadius.circular(22),
           ),
 
-          title: const Text(
-            'Hapus Transaksi?',
-          ),
+          title: const Text('Hapus Transaksi?'),
 
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -280,9 +245,7 @@ class _TransactionsPageState
             children: [
               Text(
                 transaction.description,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
 
               const SizedBox(height: 8),
@@ -299,10 +262,7 @@ class _TransactionsPageState
 
               const Text(
                 'Transaksi yang dihapus tidak dapat dikembalikan.',
-                style: TextStyle(
-                  color: _red,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: _red, fontSize: 12),
               ),
             ],
           ),
@@ -310,10 +270,7 @@ class _TransactionsPageState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
 
               child: const Text('Batal'),
@@ -326,10 +283,7 @@ class _TransactionsPageState
               ),
 
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
 
               child: const Text('Hapus'),
@@ -351,18 +305,12 @@ class _TransactionsPageState
       if (!mounted) return;
 
       _showMessage(
-        success
-            ? 'Transaksi berhasil dihapus.'
-            : 'Transaksi tidak ditemukan.',
+        success ? 'Transaksi berhasil dihapus.' : 'Transaksi tidak ditemukan.',
       );
-
     } catch (error) {
-
       if (!mounted) return;
 
-      _showMessage(
-        'Gagal menghapus transaksi: $error',
-      );
+      _showMessage('Gagal menghapus transaksi: $error');
     }
   }
 
@@ -370,44 +318,32 @@ class _TransactionsPageState
   // TRANSACTION ICON
   // =====================================================
 
-  IconData _transactionIcon(
-    FinanceTransaction transaction,
-  ) {
-
+  IconData _transactionIcon(FinanceTransaction transaction) {
     if (transaction.type == TransactionType.income) {
       return Icons.south_west_rounded;
     }
 
-    final description =
-        transaction.description.toLowerCase();
+    final description = transaction.description.toLowerCase();
 
-    if (RegExp(
-      r'makan|nasi|kopi|sarapan|resto|food|lunch|dinner',
-    ).hasMatch(description)) {
+    if (RegExp(r'makan|nasi|kopi|sarapan|resto|food|lunch|dinner')
+        .hasMatch(description)) {
       return Icons.restaurant_rounded;
     }
 
-    if (RegExp(
-      r'krl|kereta|transport|ojek|gojek|grab|bus|bensin|parkir|tj',
-    ).hasMatch(description)) {
+    if (RegExp(r'krl|kereta|transport|ojek|gojek|grab|bus|bensin|parkir|tj')
+        .hasMatch(description)) {
       return Icons.directions_transit_rounded;
     }
 
-    if (RegExp(
-      r'belanja|beli|shop|market|grocery',
-    ).hasMatch(description)) {
+    if (RegExp(r'belanja|beli|shop|market|grocery').hasMatch(description)) {
       return Icons.shopping_bag_rounded;
     }
 
-    if (RegExp(
-      r'listrik|tagihan|pulsa|internet|wifi',
-    ).hasMatch(description)) {
+    if (RegExp(r'listrik|tagihan|pulsa|internet|wifi').hasMatch(description)) {
       return Icons.receipt_long_rounded;
     }
 
-    if (RegExp(
-      r'tabung|simpan|saving',
-    ).hasMatch(description)) {
+    if (RegExp(r'tabung|simpan|saving').hasMatch(description)) {
       return Icons.savings_rounded;
     }
 
@@ -418,27 +354,19 @@ class _TransactionsPageState
   // GROUP HISTORY BY DATE
   // =====================================================
 
-  List<_HistoryEntry> _buildHistory(
-    List<FinanceTransaction> transactions,
-  ) {
-
+  List<_HistoryEntry> _buildHistory(List<FinanceTransaction> transactions) {
     final result = <_HistoryEntry>[];
 
     String? lastDate;
 
     for (final transaction in transactions) {
-
       if (lastDate != transaction.dateString) {
-        result.add(
-          _HistoryEntry.date(transaction.date),
-        );
+        result.add(_HistoryEntry.date(transaction.date));
 
         lastDate = transaction.dateString;
       }
 
-      result.add(
-        _HistoryEntry.transaction(transaction),
-      );
+      result.add(_HistoryEntry.transaction(transaction));
     }
 
     return result;
@@ -448,17 +376,11 @@ class _TransactionsPageState
   // MONTH SELECTOR
   // =====================================================
 
-  Widget _buildMonthSelector(
-    TransactionViewState state,
-  ) {
-
+  Widget _buildMonthSelector(TransactionViewState state) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
 
       decoration: BoxDecoration(
         color: theme.cardColor,
@@ -466,8 +388,7 @@ class _TransactionsPageState
         borderRadius: BorderRadius.circular(20),
 
         border: Border.all(
-          color: theme.colorScheme.outlineVariant
-              .withValues(alpha: 0.5),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
       ),
 
@@ -476,10 +397,7 @@ class _TransactionsPageState
           IconButton(
             tooltip: 'Bulan sebelumnya',
 
-            icon: const Icon(
-              Icons.chevron_left_rounded,
-              size: 28,
-            ),
+            icon: const Icon(Icons.chevron_left_rounded, size: 28),
 
             onPressed: () {
               _changeMonth(-1);
@@ -517,10 +435,7 @@ class _TransactionsPageState
           IconButton(
             tooltip: 'Bulan berikutnya',
 
-            icon: const Icon(
-              Icons.chevron_right_rounded,
-              size: 28,
-            ),
+            icon: const Icon(Icons.chevron_right_rounded, size: 28),
 
             onPressed: () {
               _changeMonth(1);
@@ -536,23 +451,14 @@ class _TransactionsPageState
   // =====================================================
 
   Widget _buildDateHeader(DateTime date) {
-
-    final color =
-        Theme.of(context).colorScheme.onSurfaceVariant;
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
 
     return Padding(
-      padding: const EdgeInsets.only(
-        top: 22,
-        bottom: 10,
-      ),
+      padding: const EdgeInsets.only(top: 22, bottom: 10),
 
       child: Row(
         children: [
-          Icon(
-            Icons.calendar_today_rounded,
-            size: 15,
-            color: color,
-          ),
+          Icon(Icons.calendar_today_rounded, size: 15, color: color),
 
           const SizedBox(width: 8),
 
@@ -576,14 +482,10 @@ class _TransactionsPageState
   // TRANSACTION CARD
   // =====================================================
 
-  Widget _buildTransactionCard(
-    FinanceTransaction transaction,
-  ) {
-
+  Widget _buildTransactionCard(FinanceTransaction transaction) {
     final theme = Theme.of(context);
 
-    final isIncome =
-        transaction.type == TransactionType.income;
+    final isIncome = transaction.type == TransactionType.income;
 
     final color = isIncome ? _green : _red;
 
@@ -591,11 +493,10 @@ class _TransactionsPageState
         ? '+${rupiah(transaction.amount)}'
         : '-${rupiah(transaction.amount)}';
 
-    final accountText =
-        transaction.accountType == AccountType.cash
-            ? transaction.accountName
-            : '${transaction.accountType.label} • '
-                '${transaction.accountName}';
+    final accountText = transaction.accountType == AccountType.cash
+        ? transaction.accountName
+        : '${transaction.accountType.label} • '
+              '${transaction.accountName}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -609,16 +510,11 @@ class _TransactionsPageState
           borderRadius: BorderRadius.circular(20),
 
           onTap: () {
-            _openTransactionForm(
-              transaction: transaction,
-            );
+            _openTransactionForm(transaction: transaction);
           },
 
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 13,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
 
             child: Row(
               children: [
@@ -632,10 +528,7 @@ class _TransactionsPageState
                     borderRadius: BorderRadius.circular(15),
                   ),
 
-                  child: Icon(
-                    _transactionIcon(transaction),
-                    color: color,
-                  ),
+                  child: Icon(_transactionIcon(transaction), color: color),
                 ),
 
                 const SizedBox(width: 12),
@@ -643,8 +536,7 @@ class _TransactionsPageState
                 // DESCRIPTION
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
 
                     children: [
                       Text(
@@ -667,8 +559,7 @@ class _TransactionsPageState
 
                         style: TextStyle(
                           fontSize: 11,
-                          color: theme
-                              .colorScheme.onSurfaceVariant,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -680,8 +571,7 @@ class _TransactionsPageState
                 // AMOUNT
                 Flexible(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
 
                     children: [
                       FittedBox(
@@ -706,8 +596,7 @@ class _TransactionsPageState
 
                         style: TextStyle(
                           fontSize: 10,
-                          color: theme
-                              .colorScheme.onSurfaceVariant,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -718,22 +607,12 @@ class _TransactionsPageState
                 PopupMenuButton<_TransactionAction>(
                   tooltip: 'Opsi transaksi',
 
-                  icon: const Icon(
-                    Icons.more_vert_rounded,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.more_vert_rounded, size: 20),
 
                   onSelected: (action) {
-
                     if (action == _TransactionAction.edit) {
-
-                      _openTransactionForm(
-                        transaction: transaction,
-                      );
-
-                    } else if (
-                        action == _TransactionAction.delete) {
-
+                      _openTransactionForm(transaction: transaction);
+                    } else if (action == _TransactionAction.delete) {
                       _confirmDelete(transaction);
                     }
                   },
@@ -759,19 +638,11 @@ class _TransactionsPageState
 
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.delete_outline_rounded,
-                              color: _red,
-                            ),
+                            Icon(Icons.delete_outline_rounded, color: _red),
 
                             SizedBox(width: 10),
 
-                            Text(
-                              'Hapus',
-                              style: TextStyle(
-                                color: _red,
-                              ),
-                            ),
+                            Text('Hapus', style: TextStyle(color: _red)),
                           ],
                         ),
                       ),
@@ -790,52 +661,35 @@ class _TransactionsPageState
   // PAGINATION FOOTER
   // =====================================================
 
-  Widget _buildPaginationFooter(
-    TransactionViewState state,
-  ) {
-
+  Widget _buildPaginationFooter(TransactionViewState state) {
     if (state.isLoadingMore) {
       return const Padding(
-        padding: EdgeInsets.symmetric(
-          vertical: 24,
-        ),
+        padding: EdgeInsets.symmetric(vertical: 24),
 
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (state.hasMore) {
       return Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 16,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 16),
 
         child: Center(
           child: OutlinedButton.icon(
             onPressed: () {
-              ref
-                  .read(transactionStateProvider.notifier)
-                  .loadMore();
+              ref.read(transactionStateProvider.notifier).loadMore();
             },
 
-            icon: const Icon(
-              Icons.expand_more_rounded,
-            ),
+            icon: const Icon(Icons.expand_more_rounded),
 
-            label: const Text(
-              'Muat Transaksi Lainnya',
-            ),
+            label: const Text('Muat Transaksi Lainnya'),
           ),
         ),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 24,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 24),
 
       child: Center(
         child: Text(
@@ -843,8 +697,7 @@ class _TransactionsPageState
 
           style: TextStyle(
             fontSize: 12,
-            color: Theme.of(context)
-                .colorScheme.onSurfaceVariant,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -856,17 +709,11 @@ class _TransactionsPageState
   // =====================================================
 
   Widget _buildEmptyState() {
-
     final scheme = Theme.of(context).colorScheme;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          24,
-          30,
-          24,
-          110,
-        ),
+        padding: const EdgeInsets.fromLTRB(24, 30, 24, 110),
 
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -895,10 +742,7 @@ class _TransactionsPageState
 
               textAlign: TextAlign.center,
 
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
 
             const SizedBox(height: 9),
@@ -908,10 +752,7 @@ class _TransactionsPageState
 
               textAlign: TextAlign.center,
 
-              style: TextStyle(
-                fontSize: 13,
-                color: scheme.onSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
             ),
 
             const SizedBox(height: 22),
@@ -926,13 +767,9 @@ class _TransactionsPageState
                 foregroundColor: Colors.white,
               ),
 
-              icon: const Icon(
-                Icons.add_rounded,
-              ),
+              icon: const Icon(Icons.add_rounded),
 
-              label: const Text(
-                'Tambah Transaksi',
-              ),
+              label: const Text('Tambah Transaksi'),
             ),
           ],
         ),
@@ -945,7 +782,6 @@ class _TransactionsPageState
   // =====================================================
 
   Widget _buildErrorBanner(String error) {
-
     return Container(
       padding: const EdgeInsets.all(14),
 
@@ -954,41 +790,24 @@ class _TransactionsPageState
 
         borderRadius: BorderRadius.circular(15),
 
-        border: Border.all(
-          color: _red.withValues(alpha: 0.25),
-        ),
+        border: Border.all(color: _red.withValues(alpha: 0.25)),
       ),
 
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: _red,
-          ),
+          const Icon(Icons.error_outline_rounded, color: _red),
 
           const SizedBox(width: 10),
 
-          Expanded(
-            child: Text(
-              error,
-
-              style: const TextStyle(
-                fontSize: 12,
-              ),
-            ),
-          ),
+          Expanded(child: Text(error, style: const TextStyle(fontSize: 12))),
 
           IconButton(
             tooltip: 'Coba lagi',
 
-            icon: const Icon(
-              Icons.refresh_rounded,
-            ),
+            icon: const Icon(Icons.refresh_rounded),
 
             onPressed: () {
-              ref
-                  .read(transactionStateProvider.notifier)
-                  .refresh();
+              ref.read(transactionStateProvider.notifier).refresh();
             },
           ),
         ],
@@ -1002,20 +821,15 @@ class _TransactionsPageState
 
   @override
   Widget build(BuildContext context) {
-
     final state = ref.watch(transactionStateProvider);
 
     final theme = Theme.of(context);
 
     // Filter transaksi berdasarkan bulan aktif.
-    final transactions = state.transactions.where(
-      (transaction) {
-        return transaction.date.year ==
-                state.selectedMonth.year &&
-            transaction.date.month ==
-                state.selectedMonth.month;
-      },
-    ).toList();
+    final transactions = state.transactions.where((transaction) {
+      return transaction.date.year == state.selectedMonth.year &&
+          transaction.date.month == state.selectedMonth.month;
+    }).toList();
 
     // Kelompokkan transaksi berdasarkan tanggal.
     final historyEntries = _buildHistory(transactions);
@@ -1029,9 +843,7 @@ class _TransactionsPageState
         color: _green,
 
         onRefresh: () {
-          return ref
-              .read(transactionStateProvider.notifier)
-              .refresh();
+          return ref.read(transactionStateProvider.notifier).refresh();
         },
 
         child: CustomScrollView(
@@ -1046,16 +858,10 @@ class _TransactionsPageState
 
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  12,
-                  16,
-                  8,
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
 
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
                     Row(
@@ -1064,13 +870,9 @@ class _TransactionsPageState
                           child: Text(
                             'Transaksi',
 
-                            style: theme
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  fontWeight:
-                                      FontWeight.w900,
-                                ),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
 
@@ -1081,15 +883,11 @@ class _TransactionsPageState
                               ? null
                               : () {
                                   ref
-                                      .read(
-                                        transactionStateProvider.notifier,
-                                      )
+                                      .read(transactionStateProvider.notifier)
                                       .refresh();
                                 },
 
-                          icon: const Icon(
-                            Icons.refresh_rounded,
-                          ),
+                          icon: const Icon(Icons.refresh_rounded),
                         ),
                       ],
                     ),
@@ -1129,8 +927,7 @@ class _TransactionsPageState
 
                           style: TextStyle(
                             fontSize: 12,
-                            color: theme
-                                .colorScheme.onSurfaceVariant,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -1143,7 +940,6 @@ class _TransactionsPageState
             // =================================================
             // ERROR
             // =================================================
-
             if (state.error != null)
               SliverToBoxAdapter(
                 child: Padding(
@@ -1152,72 +948,49 @@ class _TransactionsPageState
                     vertical: 8,
                   ),
 
-                  child: _buildErrorBanner(
-                    state.error!,
-                  ),
+                  child: _buildErrorBanner(state.error!),
                 ),
               ),
 
             // =================================================
             // LOADING
             // =================================================
-
             if (state.isLoading && !hasTransactions)
               const SliverFillRemaining(
                 hasScrollBody: false,
 
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               )
-
             // =================================================
             // EMPTY STATE
             // =================================================
-
             else if (!hasTransactions)
               SliverFillRemaining(
                 hasScrollBody: false,
 
                 child: _buildEmptyState(),
               )
-
             // =================================================
             // TRANSACTION HISTORY
             // =================================================
-
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  110,
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
 
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    if (index == historyEntries.length) {
+                      return _buildPaginationFooter(state);
+                    }
 
-                      if (index == historyEntries.length) {
-                        return _buildPaginationFooter(state);
-                      }
+                    final entry = historyEntries[index];
 
-                      final entry = historyEntries[index];
+                    if (entry.date != null) {
+                      return _buildDateHeader(entry.date!);
+                    }
 
-                      if (entry.date != null) {
-                        return _buildDateHeader(
-                          entry.date!,
-                        );
-                      }
-
-                      return _buildTransactionCard(
-                        entry.transaction!,
-                      );
-                    },
-
-                    childCount: historyEntries.length + 1,
-                  ),
+                    return _buildTransactionCard(entry.transaction!);
+                  }, childCount: historyEntries.length + 1),
                 ),
               ),
           ],
@@ -1227,7 +1000,6 @@ class _TransactionsPageState
       // =====================================================
       // ADD TRANSACTION BUTTON
       // =====================================================
-
       floatingActionButton: FloatingActionButton.extended(
         onPressed: state.isSaving
             ? null
@@ -1238,16 +1010,12 @@ class _TransactionsPageState
         backgroundColor: _green,
         foregroundColor: Colors.white,
 
-        icon: const Icon(
-          Icons.add_rounded,
-        ),
+        icon: const Icon(Icons.add_rounded),
 
         label: const Text(
           'Tambah',
 
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
     );

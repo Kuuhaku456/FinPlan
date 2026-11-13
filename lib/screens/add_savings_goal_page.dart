@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/money.dart';
 import '../models/savings_goal.dart';
 
-import '../state/savings_controller.dart';
 import '../state/savings_notifier.dart';
 
 // =====================================================
@@ -130,13 +129,11 @@ class _SavingsRupiahFormatter extends TextInputFormatter {
 class AddSavingsGoalPage extends ConsumerStatefulWidget {
   const AddSavingsGoalPage({
     super.key,
-    required this.controller,
+    
     this.goalId,
   });
 
-  // Kompatibilitas dengan main.dart / FinanceShell.
   // Operasi data sekarang melalui Riverpod.
-  final SavingsController controller;
 
   // Null = Tambah kantong baru.
   // Ada nilai = Edit kantong.

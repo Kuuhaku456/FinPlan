@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../state/plan_controller.dart';
-
 import '../providers/app_settings_provider.dart';
 import '../providers/settings_ui_provider.dart';
 
@@ -22,18 +20,7 @@ const Color _green = Color(0xFF059669);
 // ==========================================
 
 class SettingsPage extends ConsumerWidget {
-  const SettingsPage({
-    super.key,
-    required this.controller,
-    required this.textScale,
-    required this.onTextScaleChanged,
-  });
-
-  // Dipertahankan agar kompatibel dengan
-  // pemanggilan SettingsPage pada FinanceShell.
-  final PlanController controller;
-  final double textScale;
-  final ValueChanged<double> onTextScaleChanged;
+  const SettingsPage({super.key});
 
   // ========================================
   // FONT SIZE PRESETS
@@ -60,20 +47,14 @@ class SettingsPage extends ConsumerWidget {
     }
 
     try {
-      await ref
-          .read(settingsUiProvider.notifier)
-          .changeTheme(mode);
+      await ref.read(settingsUiProvider.notifier).changeTheme(mode);
     } catch (_) {
       if (!context.mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Gagal mengubah tema aplikasi.',
-          ),
-        ),
+        const SnackBar(content: Text('Gagal mengubah tema aplikasi.')),
       );
     }
   }
@@ -82,10 +63,7 @@ class SettingsPage extends ConsumerWidget {
   // 2. RESET FINANCIAL PLAN
   // ========================================
 
-  Future<void> _confirmResetPlan(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  Future<void> _confirmResetPlan(BuildContext context, WidgetRef ref) async {
     if (ref.read(settingsUiProvider).isResettingPlan) {
       return;
     }
@@ -93,15 +71,12 @@ class SettingsPage extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        final dialogScheme =
-            Theme.of(dialogContext).colorScheme;
+        final dialogScheme = Theme.of(dialogContext).colorScheme;
 
         return AlertDialog(
           scrollable: true,
 
-          title: const Text(
-            'Reset Rencana Keuangan?',
-          ),
+          title: const Text('Reset Rencana Keuangan?'),
 
           content: const Text(
             'Rencana keuangan dan pembagian gaji '
@@ -115,10 +90,7 @@ class SettingsPage extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
               child: const Text('Batal'),
             ),
@@ -129,10 +101,7 @@ class SettingsPage extends ConsumerWidget {
                 foregroundColor: dialogScheme.onError,
               ),
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
               child: const Text('Reset'),
             ),
@@ -146,12 +115,9 @@ class SettingsPage extends ConsumerWidget {
     }
 
     try {
-      await ref
-          .read(settingsUiProvider.notifier)
-          .resetFinancialPlan();
+      await ref.read(settingsUiProvider.notifier).resetFinancialPlan();
 
-      if (context.mounted &&
-          Navigator.of(context).canPop()) {
+      if (context.mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
     } catch (_) {
@@ -160,11 +126,7 @@ class SettingsPage extends ConsumerWidget {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Gagal mereset rencana. Coba lagi.',
-          ),
-        ),
+        const SnackBar(content: Text('Gagal mereset rencana. Coba lagi.')),
       );
     }
   }
@@ -173,22 +135,13 @@ class SettingsPage extends ConsumerWidget {
   // 3. SECTION TITLE
   // ========================================
 
-  Widget _sectionTitle(
-    BuildContext context,
-    String title,
-  ) {
+  Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 12,
-      ),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         title,
-        style: Theme.of(context)
-            .textTheme
-            .titleMedium
-            ?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
+        style: Theme.of(context).textTheme.titleMedium
+            ?.copyWith(fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -208,9 +161,7 @@ class SettingsPage extends ConsumerWidget {
     final percent = (selectedScale * 100).round();
 
     void changeFontSize(double value) {
-      ref
-          .read(appSettingsProvider.notifier)
-          .setFontScale(value);
+      ref.read(appSettingsProvider.notifier).setFontScale(value);
     }
 
     return SettingsSurface(
@@ -222,8 +173,7 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
 
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SettingsIconBox(
                 icon: Icons.format_size_rounded,
@@ -235,16 +185,13 @@ class SettingsPage extends ConsumerWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Ukuran Teks',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(
-                            fontWeight:
-                                FontWeight.w800,
-                          ),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
 
                     const SizedBox(height: 4),
@@ -252,11 +199,9 @@ class SettingsPage extends ConsumerWidget {
                     Text(
                       'Perbesar tulisan agar '
                       'lebih mudah dibaca.',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(
-                            color:
-                                scheme.onSurfaceVariant,
-                          ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -269,23 +214,18 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
           // CURRENT FONT SIZE
           // ==================================
-
           Row(
             children: [
-              const Icon(
-                Icons.text_fields_rounded,
-                size: 18,
-              ),
+              const Icon(Icons.text_fields_rounded, size: 18),
 
               const Spacer(),
 
               Text(
                 '$percent%',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(
-                      color: scheme.primary,
-                      fontWeight: FontWeight.w900,
-                    ),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -293,7 +233,6 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
           // FONT SIZE SLIDER
           // ==================================
-
           Slider(
             value: selectedScale,
             min: 1.0,
@@ -307,21 +246,12 @@ class SettingsPage extends ConsumerWidget {
           ),
 
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 4,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '100%',
-                  style: theme.textTheme.labelSmall,
-                ),
-                Text(
-                  '150%',
-                  style: theme.textTheme.labelSmall,
-                ),
+                Text('100%', style: theme.textTheme.labelSmall),
+                Text('150%', style: theme.textTheme.labelSmall),
               ],
             ),
           ),
@@ -331,7 +261,6 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
           // FONT PRESETS
           // ==================================
-
           Wrap(
             spacing: 8,
             runSpacing: 6,
@@ -339,9 +268,7 @@ class SettingsPage extends ConsumerWidget {
               for (final preset in _presets)
                 ChoiceChip(
                   label: Text(preset.$1),
-                  selected:
-                      (selectedScale - preset.$2).abs() <
-                          0.001,
+                  selected: (selectedScale - preset.$2).abs() < 0.001,
                   onSelected: (_) {
                     changeFontSize(preset.$2);
                   },
@@ -354,37 +281,31 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
           // FONT PREVIEW
           // ==================================
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: scheme.primaryContainer
-                  .withValues(alpha: 0.55),
-              borderRadius:
-                  BorderRadius.circular(18),
+              color: scheme.primaryContainer.withValues(alpha: 0.55),
+              borderRadius: BorderRadius.circular(18),
             ),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Pratinjau Tulisan',
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(
-                        color: scheme.primary,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
 
                 const SizedBox(height: 8),
 
                 Text(
                   'Mengatur uang jadi lebih mudah.',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
 
                 const SizedBox(height: 4),
@@ -404,17 +325,10 @@ class SettingsPage extends ConsumerWidget {
           // ==================================
           // RESET FONT SIZE
           // ==================================
-
           TextButton.icon(
-            onPressed: selectedScale == 1.0
-                ? null
-                : () => changeFontSize(1.0),
-            icon: const Icon(
-              Icons.restart_alt_rounded,
-            ),
-            label: const Text(
-              'Kembalikan ukuran normal',
-            ),
+            onPressed: selectedScale == 1.0 ? null : () => changeFontSize(1.0),
+            icon: const Icon(Icons.restart_alt_rounded),
+            label: const Text('Kembalikan ukuran normal'),
           ),
         ],
       ),
@@ -431,43 +345,27 @@ class SettingsPage extends ConsumerWidget {
     ThemeMode selectedMode,
     bool isChangingTheme,
   ) {
-    final mediaScale =
-        MediaQuery.textScalerOf(context).scale(16) /
-            16;
+    final mediaScale = MediaQuery.textScalerOf(context).scale(16) / 16;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final stackVertically =
-            constraints.maxWidth < 350 ||
-                mediaScale >= 1.4;
+        final stackVertically = constraints.maxWidth < 350 || mediaScale >= 1.4;
 
-        final lightThemeCard =
-            SettingsThemePreviewCard(
+        final lightThemeCard = SettingsThemePreviewCard(
           dark: false,
-          selected:
-              selectedMode == ThemeMode.light,
+          selected: selectedMode == ThemeMode.light,
           enabled: !isChangingTheme,
           onTap: () {
-            _changeTheme(
-              context,
-              ref,
-              ThemeMode.light,
-            );
+            _changeTheme(context, ref, ThemeMode.light);
           },
         );
 
-        final darkThemeCard =
-            SettingsThemePreviewCard(
+        final darkThemeCard = SettingsThemePreviewCard(
           dark: true,
-          selected:
-              selectedMode == ThemeMode.dark,
+          selected: selectedMode == ThemeMode.dark,
           enabled: !isChangingTheme,
           onTap: () {
-            _changeTheme(
-              context,
-              ref,
-              ThemeMode.dark,
-            );
+            _changeTheme(context, ref, ThemeMode.dark);
           },
         );
 
@@ -485,18 +383,13 @@ class SettingsPage extends ConsumerWidget {
               darkThemeCard,
             ] else
               Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: lightThemeCard,
-                  ),
+                  Expanded(child: lightThemeCard),
 
                   const SizedBox(width: 10),
 
-                  Expanded(
-                    child: darkThemeCard,
-                  ),
+                  Expanded(child: darkThemeCard),
                 ],
               ),
 
@@ -505,47 +398,32 @@ class SettingsPage extends ConsumerWidget {
             // ==================================
             // FOLLOW SYSTEM THEME
             // ==================================
-
             SettingsSystemThemeChoice(
-              selected:
-                  selectedMode == ThemeMode.system,
+              selected: selectedMode == ThemeMode.system,
               enabled: !isChangingTheme,
               isDeviceDark:
-                  MediaQuery.platformBrightnessOf(
-                        context,
-                      ) ==
-                      Brightness.dark,
+                  MediaQuery.platformBrightnessOf(context) == Brightness.dark,
               onTap: () {
-                _changeTheme(
-                  context,
-                  ref,
-                  ThemeMode.system,
-                );
+                _changeTheme(context, ref, ThemeMode.system);
               },
             ),
 
             const SizedBox(height: 9),
 
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 3),
               child: Text(
                 'Jika memilih Ikuti Sistem HP, '
                 'FinPlan akan mengikuti tema '
                 'yang digunakan perangkat.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
 
             if (isChangingTheme) ...[
               const SizedBox(height: 10),
 
-              const LinearProgressIndicator(
-                minHeight: 3,
-              ),
+              const LinearProgressIndicator(minHeight: 3),
             ],
           ],
         );
@@ -557,20 +435,13 @@ class SettingsPage extends ConsumerWidget {
   // 6. FINPLAN HEADER
   // ========================================
 
-  Widget _buildFinPlanHeader(
-    BuildContext context,
-  ) {
+  Widget _buildFinPlanHeader(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: [
-            _darkGreen,
-            _green,
-          ],
-        ),
+        gradient: const LinearGradient(colors: [_darkGreen, _green]),
       ),
       child: Row(
         children: [
@@ -578,11 +449,8 @@ class SettingsPage extends ConsumerWidget {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: 0.16,
-              ),
-              borderRadius:
-                  BorderRadius.circular(17),
+              color: Colors.white.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(17),
             ),
             child: const Icon(
               Icons.account_balance_wallet_rounded,
@@ -595,8 +463,7 @@ class SettingsPage extends ConsumerWidget {
 
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'FinPlan',
@@ -611,9 +478,7 @@ class SettingsPage extends ConsumerWidget {
 
                 Text(
                   'Your Personal Finance Partner',
-                  style: TextStyle(
-                    color: Colors.white70,
-                  ),
+                  style: TextStyle(color: Colors.white70),
                 ),
               ],
             ),
@@ -637,8 +502,7 @@ class SettingsPage extends ConsumerWidget {
     return SettingsSurface(
       padding: EdgeInsets.zero,
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
         ),
@@ -651,34 +515,23 @@ class SettingsPage extends ConsumerWidget {
 
         title: const Text(
           'Reset Rencana',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
 
-        subtitle: const Text(
-          'Mulai pembagian gaji dari awal',
-        ),
+        subtitle: const Text('Mulai pembagian gaji dari awal'),
 
         trailing: isResetting
             ? const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                ),
+                child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(
-                Icons.chevron_right_rounded,
-              ),
+            : const Icon(Icons.chevron_right_rounded),
 
         onTap: isResetting
             ? null
             : () {
-                _confirmResetPlan(
-                  context,
-                  ref,
-                );
+                _confirmResetPlan(context, ref);
               },
       ),
     );
@@ -688,9 +541,7 @@ class SettingsPage extends ConsumerWidget {
   // 8. PRIVACY & SECURITY
   // ========================================
 
-  Widget _buildPrivacySection(
-    BuildContext context,
-  ) {
+  Widget _buildPrivacySection(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return SettingsSurface(
@@ -698,8 +549,7 @@ class SettingsPage extends ConsumerWidget {
       child: Column(
         children: [
           ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 8,
             ),
@@ -710,24 +560,15 @@ class SettingsPage extends ConsumerWidget {
               background: scheme.primaryContainer,
             ),
 
-            title: const Text(
-              'Penyimpanan Lokal',
-            ),
+            title: const Text('Penyimpanan Lokal'),
 
-            subtitle: const Text(
-              'Data disimpan di perangkat',
-            ),
+            subtitle: const Text('Data disimpan di perangkat'),
           ),
 
-          const Divider(
-            height: 1,
-            indent: 16,
-            endIndent: 16,
-          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
 
           ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 8,
             ),
@@ -738,9 +579,7 @@ class SettingsPage extends ConsumerWidget {
               background: scheme.primaryContainer,
             ),
 
-            title: const Text(
-              'Keamanan Data',
-            ),
+            title: const Text('Keamanan Data'),
 
             subtitle: const Text(
               'Hindari menyimpan PIN '
@@ -756,9 +595,7 @@ class SettingsPage extends ConsumerWidget {
   // 9. ABOUT FINPLAN
   // ========================================
 
-  Widget _buildAboutSection(
-    BuildContext context,
-  ) {
+  Widget _buildAboutSection(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
     return SettingsSurface(
@@ -789,28 +626,16 @@ class SettingsPage extends ConsumerWidget {
   // ========================================
 
   @override
-  Widget build(
-    BuildContext context,
-    WidgetRef ref,
-  ) {
-    final settings = ref.watch(
-      appSettingsProvider,
-    );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(appSettingsProvider);
 
-    final ui = ref.watch(
-      settingsUiProvider,
-    );
+    final ui = ref.watch(settingsUiProvider);
 
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        32,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
 
       children: [
         // ==================================
@@ -819,10 +644,9 @@ class SettingsPage extends ConsumerWidget {
 
         Text(
           'Pengaturan',
-          style: theme.textTheme.headlineSmall
-              ?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w900,
+          ),
         ),
 
         const SizedBox(height: 5),
@@ -830,10 +654,9 @@ class SettingsPage extends ConsumerWidget {
         Text(
           'Atur tampilan, keamanan, '
           'dan data keuangan FinPlan.',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
         ),
 
         const SizedBox(height: 22),
@@ -845,51 +668,29 @@ class SettingsPage extends ConsumerWidget {
         // ==================================
         // SECTION 1: THEME
         // ==================================
+        _sectionTitle(context, 'Tampilan Aplikasi'),
 
-        _sectionTitle(
-          context,
-          'Tampilan Aplikasi',
-        ),
-
-        _themeSettings(
-          context,
-          ref,
-          settings.themeMode,
-          ui.isChangingTheme,
-        ),
+        _themeSettings(context, ref, settings.themeMode, ui.isChangingTheme),
 
         const SizedBox(height: 25),
 
         // ==================================
         // SECTION 2: ACCESSIBILITY
         // ==================================
+        _sectionTitle(context, 'Aksesibilitas'),
 
-        _sectionTitle(
-          context,
-          'Aksesibilitas',
-        ),
-
-        _fontSettings(
-          context,
-          ref,
-          settings.fontScale,
-        ),
+        _fontSettings(context, ref, settings.fontScale),
 
         const SizedBox(height: 25),
 
         // ==================================
         // SECTION 3: DATA MANAGEMENT
         // ==================================
-
-        _sectionTitle(
-          context,
-          'Data & Perencanaan',
-        ),
+        _sectionTitle(context, 'Data & Perencanaan'),
 
         // ==================================
         // EXPORT TRANSACTIONS
         // ==================================
-
         const TransactionExportCard(),
 
         const SizedBox(height: 12),
@@ -897,7 +698,6 @@ class SettingsPage extends ConsumerWidget {
         // ==================================
         // IMPORT TRANSACTIONS
         // ==================================
-
         const TransactionImportCard(),
 
         const SizedBox(height: 12),
@@ -905,23 +705,14 @@ class SettingsPage extends ConsumerWidget {
         // ==================================
         // RESET FINANCIAL PLAN
         // ==================================
-
-        _buildResetPlanCard(
-          context,
-          ref,
-          ui.isResettingPlan,
-        ),
+        _buildResetPlanCard(context, ref, ui.isResettingPlan),
 
         const SizedBox(height: 25),
 
         // ==================================
         // SECTION 4: PRIVACY
         // ==================================
-
-        _sectionTitle(
-          context,
-          'Privasi & Keamanan',
-        ),
+        _sectionTitle(context, 'Privasi & Keamanan'),
 
         _buildPrivacySection(context),
 
@@ -930,11 +721,7 @@ class SettingsPage extends ConsumerWidget {
         // ==================================
         // SECTION 5: ABOUT
         // ==================================
-
-        _sectionTitle(
-          context,
-          'Tentang FinPlan',
-        ),
+        _sectionTitle(context, 'Tentang FinPlan'),
 
         _buildAboutSection(context),
 
@@ -943,15 +730,13 @@ class SettingsPage extends ConsumerWidget {
         // ==================================
         // FOOTER
         // ==================================
-
         Center(
           child: Text(
             'FinPlan • Better financial habits',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

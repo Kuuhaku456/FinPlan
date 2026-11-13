@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/money.dart';
 import '../models/savings_goal.dart';
 
-import '../state/savings_controller.dart';
 import '../state/savings_notifier.dart';
 
 import '../features/savings/presentation/widgets/savings_summary_card.dart';
@@ -61,14 +60,11 @@ class _SavingsInput {
 class SavingsPage extends ConsumerStatefulWidget {
   const SavingsPage({
     super.key,
-    required this.controller,
+    
     required this.onCreateGoal,
     required this.onOpenGoal,
   });
 
-  // Kompatibilitas dengan FinanceShell/main.dart.
-  // Pembacaan dan perubahan data menggunakan Riverpod.
-  final SavingsController controller;
 
   final VoidCallback onCreateGoal;
 

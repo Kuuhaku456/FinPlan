@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/data/savings_repository.dart';
-import '../lib/models/savings_goal.dart';
-import '../lib/state/savings_controller.dart';
-import '../lib/state/savings_notifier.dart';
+import 'package:celeng_id/data/savings_repository.dart';
+import 'package:celeng_id/models/savings_goal.dart';
+import 'package:celeng_id/state/savings_controller.dart';
+import 'package:celeng_id/state/savings_notifier.dart';
 
 // ======================================================
 // FINPLAN - SAVINGS LIFECYCLE INTEGRATION TEST
@@ -32,9 +32,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   }
 
   @override
-  Future<List<SavingsGoal>> getAllGoals({
-    bool includeArchived = true,
-  }) async {
+  Future<List<SavingsGoal>> getAllGoals({bool includeArchived = true}) async {
     return _goals.values
         .where((goal) => includeArchived || !goal.isArchived)
         .toList();
@@ -60,11 +58,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   }) async {
     final current = _requireGoal(goalId);
 
-    final updated = current.addSavings(
-      amount,
-      note: note,
-      date: date,
-    );
+    final updated = current.addSavings(amount, note: note, date: date);
 
     _goals[goalId] = updated;
 
@@ -80,11 +74,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   }) async {
     final current = _requireGoal(goalId);
 
-    final updated = current.withdrawSavings(
-      amount,
-      note: note,
-      date: date,
-    );
+    final updated = current.withdrawSavings(amount, note: note, date: date);
 
     _goals[goalId] = updated;
 
@@ -110,16 +100,10 @@ class _MemorySavingsRepository extends SavingsRepository {
   }
 
   @override
-  Future<List<SavingsMovement>> getMovementHistory(
-    String goalId,
-  ) async {
-    final history = [
-      ..._requireGoal(goalId).movements,
-    ];
+  Future<List<SavingsMovement>> getMovementHistory(String goalId) async {
+    final history = [..._requireGoal(goalId).movements];
 
-    history.sort(
-      (a, b) => b.date.compareTo(a.date),
-    );
+    history.sort((a, b) => b.date.compareTo(a.date));
 
     return history;
   }
@@ -156,9 +140,7 @@ void main() {
 
     container = ProviderContainer(
       overrides: [
-        legacySavingsControllerProvider.overrideWithValue(
-          controller,
-        ),
+        legacySavingsControllerProvider.overrideWithValue(controller),
       ],
     );
 
@@ -176,16 +158,11 @@ void main() {
   // ====================================================
 
   test('Membuat kantong tabungan memperbarui state', () async {
-    final notifier = container.read(
-      savingsStateProvider.notifier,
-    );
+    final notifier = container.read(savingsStateProvider.notifier);
 
     await notifier.loadGoals();
 
-    expect(
-      container.read(savingsStateProvider).activeGoals,
-      isEmpty,
-    );
+    expect(container.read(savingsStateProvider).activeGoals, isEmpty);
 
     await notifier.createGoal(_createGoal());
 
@@ -197,10 +174,7 @@ void main() {
     expect(state.remainingTarget, 10000000);
     expect(state.summary.activeGoals, 1);
 
-    expect(
-      state.activeGoals.first.name,
-      'Dana Pernikahan',
-    );
+    expect(state.activeGoals.first.name, 'Dana Pernikahan');
   });
 
   // ====================================================
@@ -208,9 +182,7 @@ void main() {
   // ====================================================
 
   test('Setoran dan penarikan memperbarui saldo serta riwayat', () async {
-    final notifier = container.read(
-      savingsStateProvider.notifier,
-    );
+    final notifier = container.read(savingsStateProvider.notifier);
 
     await notifier.createGoal(_createGoal());
 
@@ -276,19 +248,12 @@ void main() {
   // ====================================================
 
   test('Penarikan melebihi saldo ditolak tanpa mengubah data', () async {
-    final notifier = container.read(
-      savingsStateProvider.notifier,
-    );
+    final notifier = container.read(savingsStateProvider.notifier);
 
-    await notifier.createGoal(
-      _createGoal(savedAmount: 1000000),
-    );
+    await notifier.createGoal(_createGoal(savedAmount: 1000000));
 
     await expectLater(
-      notifier.withdrawSavings(
-        'goal-nikah',
-        2000000,
-      ),
+      notifier.withdrawSavings('goal-nikah', 2000000),
       throwsA(isA<StateError>()),
     );
 
@@ -304,13 +269,9 @@ void main() {
   // ====================================================
 
   test('Arsip dan restore mempertahankan saldo tabungan', () async {
-    final notifier = container.read(
-      savingsStateProvider.notifier,
-    );
+    final notifier = container.read(savingsStateProvider.notifier);
 
-    await notifier.createGoal(
-      _createGoal(savedAmount: 3000000),
-    );
+    await notifier.createGoal(_createGoal(savedAmount: 3000000));
 
     // Arsipkan kantong.
     await notifier.archiveGoal('goal-nikah');
@@ -344,10 +305,7 @@ void main() {
   // ====================================================
 
   test('Progres maksimal 100 persen meskipun saldo melebihi target', () {
-    final goal = _createGoal(
-      targetAmount: 1000000,
-      savedAmount: 1500000,
-    );
+    final goal = _createGoal(targetAmount: 1000000, savedAmount: 1500000);
 
     expect(goal.progress, 1.0);
     expect(goal.progressPercent, 100);
@@ -360,29 +318,15 @@ void main() {
   // ====================================================
 
   test('Nominal setoran dan penarikan harus positif', () {
-    final goal = _createGoal(
-      savedAmount: 500000,
-    );
+    final goal = _createGoal(savedAmount: 500000);
 
-    expect(
-      () => goal.addSavings(0),
-      throwsArgumentError,
-    );
+    expect(() => goal.addSavings(0), throwsArgumentError);
 
-    expect(
-      () => goal.addSavings(-10000),
-      throwsArgumentError,
-    );
+    expect(() => goal.addSavings(-10000), throwsArgumentError);
 
-    expect(
-      () => goal.withdrawSavings(0),
-      throwsArgumentError,
-    );
+    expect(() => goal.withdrawSavings(0), throwsArgumentError);
 
-    expect(
-      () => goal.withdrawSavings(-10000),
-      throwsArgumentError,
-    );
+    expect(() => goal.withdrawSavings(-10000), throwsArgumentError);
 
     // Objek asli tidak berubah setelah operasi ditolak.
     expect(goal.savedAmount, 500000);
@@ -396,11 +340,7 @@ void main() {
   test('Data kantong dan riwayat tetap utuh setelah JSON restore', () {
     final original = _createGoal(
       savedAmount: 1000000,
-    ).addSavings(
-      250000,
-      note: 'Setoran tambahan',
-      date: DateTime(2026, 11, 9),
-    );
+    ).addSavings(250000, note: 'Setoran tambahan', date: DateTime(2026, 11, 9));
 
     // Simpan sebagai JSON.
     final json = original.toJsonString();
@@ -416,10 +356,7 @@ void main() {
 
     expect(restored.movements.length, 1);
     expect(restored.movements.first.amount, 250000);
-    expect(
-      restored.movements.first.note,
-      'Setoran tambahan',
-    );
+    expect(restored.movements.first.note, 'Setoran tambahan');
 
     expect(restored.progress, original.progress);
   });

@@ -19,7 +19,7 @@ import 'models/finance_plan.dart';
 import 'screens/welcome_slides_page.dart';
 
 import 'state/finance_plan_notifier.dart';
-import 'state/job_offer_controller.dart';
+import 'state/job_offer_notifier.dart';
 import 'state/plan_controller.dart';
 import 'state/savings_controller.dart';
 import 'state/savings_notifier.dart';
@@ -38,12 +38,9 @@ const String kIntroSeenKey = 'finplan.intro_seen.v1';
 // PROVIDER WELCOME SLIDES
 // ============================================================
 
-final initialIntroSeenProvider = Provider<bool>(
-  (ref) => false,
-);
+final initialIntroSeenProvider = Provider<bool>((ref) => false);
 
-final introSeenProvider =
-    NotifierProvider<IntroSeenNotifier, bool>(
+final introSeenProvider = NotifierProvider<IntroSeenNotifier, bool>(
   IntroSeenNotifier.new,
 );
 
@@ -64,9 +61,7 @@ class IntroSeenNotifier extends Notifier<bool> {
     state = true;
 
     try {
-      await ref
-          .read(settingsPreferencesProvider)
-          .setBool(kIntroSeenKey, true);
+      await ref.read(settingsPreferencesProvider).setBool(kIntroSeenKey, true);
     } catch (_) {
       // Intro tetap selesai pada sesi ini meskipun
       // penyimpanan preferensi gagal.
@@ -102,8 +97,7 @@ Future<void> main() async {
   ThemeMode themePreference = ThemeMode.system;
 
   try {
-    final savedTheme =
-        await planRepository.loadThemePreference();
+    final savedTheme = await planRepository.loadThemePreference();
 
     themePreference = switch (savedTheme) {
       'light' => ThemeMode.light,
@@ -122,8 +116,7 @@ Future<void> main() async {
   bool introSeen = false;
 
   try {
-    introSeen =
-        await preferences.getBool(kIntroSeenKey) ?? false;
+    introSeen = await preferences.getBool(kIntroSeenKey) ?? false;
   } catch (_) {
     // Welcome akan ditampilkan kembali jika
     // preferensi gagal dibaca.
@@ -136,8 +129,7 @@ Future<void> main() async {
   double fontScale = 1.0;
 
   try {
-    final savedScale =
-        await preferences.getDouble(kFontScaleKey);
+    final savedScale = await preferences.getDouble(kFontScaleKey);
 
     if (savedScale != null && savedScale.isFinite) {
       fontScale = savedScale.clamp(1.0, 1.5).toDouble();
@@ -156,20 +148,10 @@ Future<void> main() async {
     themePreference,
   );
 
-  final transactionController = TransactionController(
-    TransactionRepository(),
-  );
+  final transactionController = TransactionController(TransactionRepository());
 
   final savingsController = SavingsController(
-    SavingsRepository(
-      preferences: preferences,
-    ),
-  );
-
-  final jobOfferController = JobOfferController(
-    JobOfferRepository(
-      preferences: preferences,
-    ),
+    SavingsRepository(preferences: preferences),
   );
 
   // ==========================================================
@@ -180,31 +162,20 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         // Status welcome slides.
-        initialIntroSeenProvider.overrideWithValue(
-          introSeen,
-        ),
+        initialIntroSeenProvider.overrideWithValue(introSeen),
 
         // Pengaturan tema dan ukuran font.
         initialAppSettingsProvider.overrideWithValue(
-          AppSettingsState(
-            themeMode: themePreference,
-            fontScale: fontScale,
-          ),
+          AppSettingsState(themeMode: themePreference, fontScale: fontScale),
         ),
 
         // Settings.
-        settingsPlanControllerProvider.overrideWithValue(
-          planController,
-        ),
+        settingsPlanControllerProvider.overrideWithValue(planController),
 
-        settingsPreferencesProvider.overrideWithValue(
-          preferences,
-        ),
+        settingsPreferencesProvider.overrideWithValue(preferences),
 
         // Finance Plan.
-        legacyPlanControllerProvider.overrideWithValue(
-          planController,
-        ),
+        legacyPlanControllerProvider.overrideWithValue(planController),
 
         // Transactions.
         legacyTransactionControllerProvider.overrideWithValue(
@@ -212,8 +183,11 @@ Future<void> main() async {
         ),
 
         // Savings.
-        legacySavingsControllerProvider.overrideWithValue(
-          savingsController,
+        legacySavingsControllerProvider.overrideWithValue(savingsController),
+
+        // Repository Tawaran Kerja (penyimpanan tetap sama).
+        jobOfferRepositoryProvider.overrideWithValue(
+          JobOfferRepository(preferences: preferences),
         ),
       ],
 
@@ -221,7 +195,6 @@ Future<void> main() async {
         planController: planController,
         transactionController: transactionController,
         savingsController: savingsController,
-        jobOfferController: jobOfferController,
       ),
     ),
   );
@@ -237,13 +210,11 @@ class FinPlanApp extends ConsumerStatefulWidget {
     required this.planController,
     required this.transactionController,
     required this.savingsController,
-    required this.jobOfferController,
   });
 
   final PlanController planController;
   final TransactionController transactionController;
   final SavingsController savingsController;
-  final JobOfferController jobOfferController;
 
   @override
   ConsumerState<FinPlanApp> createState() {
@@ -271,7 +242,6 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
       // ======================================================
       // LIGHT / DARK MODE
       // ======================================================
-
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: settings.themeMode,
@@ -279,24 +249,17 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
       // ======================================================
       // FONT SCALING
       // ======================================================
-
       builder: (context, child) {
         final media = MediaQuery.of(context);
 
-        final deviceScale =
-            media.textScaler.scale(16) / 16;
+        final deviceScale = media.textScaler.scale(16) / 16;
 
-        final effectiveScale =
-            (deviceScale * settings.fontScale)
-                .clamp(1.0, 2.0)
-                .toDouble();
+        final effectiveScale = (deviceScale * settings.fontScale)
+            .clamp(1.0, 2.0)
+            .toDouble();
 
         return MediaQuery(
-          data: media.copyWith(
-            textScaler: TextScaler.linear(
-              effectiveScale,
-            ),
-          ),
+          data: media.copyWith(textScaler: TextScaler.linear(effectiveScale)),
           child: child ?? const SizedBox.shrink(),
         );
       },
@@ -304,16 +267,11 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
       // ======================================================
       // INITIAL SCREEN
       // ======================================================
-
       home: Consumer(
         builder: (context, ref, _) {
-          final introSeen = ref.watch(
-            introSeenProvider,
-          );
+          final introSeen = ref.watch(introSeenProvider);
 
-          final plan = ref.watch(
-            financePlanProvider,
-          );
+          final plan = ref.watch(financePlanProvider);
 
           // ==================================================
           // WELCOME SLIDES
@@ -322,11 +280,7 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
           if (!introSeen) {
             return WelcomeSlidesPage(
               onContinue: () {
-                unawaited(
-                  ref
-                      .read(introSeenProvider.notifier)
-                      .finishIntro(),
-                );
+                unawaited(ref.read(introSeenProvider.notifier).finishIntro());
               },
             );
           }
@@ -343,13 +297,7 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
           // MAIN FINPLAN
           // ==================================================
 
-          return FinanceShell(
-            planController: widget.planController,
-            transactionController:
-                widget.transactionController,
-            savingsController: widget.savingsController,
-            jobOfferController: widget.jobOfferController,
-          );
+          return FinanceShell();
         },
       ),
     );
@@ -361,11 +309,7 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
 
   @override
   void dispose() {
-    unawaited(
-      widget.transactionController.closeDatabase(),
-    );
-
-    widget.jobOfferController.dispose();
+    unawaited(widget.transactionController.closeDatabase());
     widget.savingsController.dispose();
     widget.transactionController.dispose();
     widget.planController.dispose();
@@ -379,57 +323,41 @@ class _FinPlanAppState extends ConsumerState<FinPlanApp> {
 // ============================================================
 
 class OnboardingPage extends ConsumerWidget {
-  const OnboardingPage({
-    super.key,
-  });
+  const OnboardingPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(
-      appSettingsProvider,
-    ).themeMode;
+    final mode = ref.watch(appSettingsProvider).themeMode;
 
-    final isDark = mode == ThemeMode.dark ||
+    final isDark =
+        mode == ThemeMode.dark ||
         (mode == ThemeMode.system &&
-            MediaQuery.platformBrightnessOf(context) ==
-                Brightness.dark);
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Mulai dengan FinPlan',
-        ),
+        title: const Text('Mulai dengan FinPlan'),
 
         actions: [
           IconButton(
-            tooltip: isDark
-                ? 'Aktifkan light mode'
-                : 'Aktifkan dark mode',
+            tooltip: isDark ? 'Aktifkan light mode' : 'Aktifkan dark mode',
 
             onPressed: () async {
               try {
                 await ref
                     .read(appSettingsProvider.notifier)
-                    .toggleTheme(
-                      Theme.of(context).brightness,
-                    );
+                    .toggleTheme(Theme.of(context).brightness);
               } catch (_) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Gagal mengubah tampilan.',
-                      ),
-                    ),
+                    const SnackBar(content: Text('Gagal mengubah tampilan.')),
                   );
                 }
               }
             },
 
             icon: Icon(
-              isDark
-                  ? Icons.light_mode_outlined
-                  : Icons.dark_mode_outlined,
+              isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
             ),
           ),
         ],
@@ -439,9 +367,7 @@ class OnboardingPage extends ConsumerWidget {
         child: PlanEditor(
           initial: FinancePlan.defaults(),
           onboarding: true,
-          onSave: ref
-              .read(financePlanProvider.notifier)
-              .savePlan,
+          onSave: ref.read(financePlanProvider.notifier).savePlan,
         ),
       ),
     );

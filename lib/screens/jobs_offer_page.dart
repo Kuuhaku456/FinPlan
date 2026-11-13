@@ -1,39 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/money.dart';
 import '../models/job_offer.dart';
-import '../state/job_offer_controller.dart';
+import '../state/job_offer_notifier.dart';
 
-enum _OfferSort {
-  recent,
-  score,
-  remainingIncome,
-}
+enum _OfferSort { recent, score, remainingIncome }
 
-class JobOffersPage extends StatefulWidget {
-  const JobOffersPage({
-    super.key,
-    required this.controller,
-    required this.onAdd,
-    required this.onEdit,
-  });
-
-  final JobOfferController controller;
+class JobOffersPage extends ConsumerStatefulWidget {
+  const JobOffersPage({super.key, required this.onAdd, required this.onEdit});
   final VoidCallback onAdd;
   final ValueChanged<JobOffer> onEdit;
 
   @override
-  State<JobOffersPage> createState() => _JobOffersPageState();
+  ConsumerState<JobOffersPage> createState() => _JobOffersPageState();
 }
 
-class _JobOffersPageState extends State<JobOffersPage> {
+class _JobOffersPageState extends ConsumerState<JobOffersPage> {
   static const Color darkGreen = Color(0xFF064E3B);
   static const Color green = Color(0xFF10B981);
   static const Color softGreen = Color(0xFFE9F8F0);
   static const Color muted = Color(0xFF84958C);
 
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   final Set<String> _selectedIds = <String>{};
 
@@ -47,9 +38,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      if (!widget.controller.hasLoaded &&
-          !widget.controller.isLoading) {
-        widget.controller.loadOffers();
+      if (!ref.read(jobOffersProvider).hasLoaded &&
+          !ref.read(jobOffersProvider).isLoading) {
+        unawaited(ref.read(jobOffersProvider.notifier).loadOffers());
       }
     });
   }
@@ -64,38 +55,32 @@ class _JobOffersPageState extends State<JobOffersPage> {
     List<JobOffer> offers;
 
     if (_showArchived) {
-      offers = List<JobOffer>.from(
-        widget.controller.archivedOffers,
-      );
+      offers = List<JobOffer>.from(ref.read(jobOffersProvider).archivedOffers);
     } else {
       switch (_sort) {
         case _OfferSort.recent:
           offers = List<JobOffer>.from(
-            widget.controller.activeOffers,
+            ref.read(jobOffersProvider).activeOffers,
           );
           break;
 
         case _OfferSort.score:
           offers = List<JobOffer>.from(
-            widget.controller.rankedActiveOffers,
+            ref.read(jobOffersProvider).rankedActiveOffers,
           );
           break;
 
         case _OfferSort.remainingIncome:
-          offers = List<JobOffer>.from(
-            widget.controller.activeOffers,
-          )..sort(
-              (a, b) => b.remainingMonthlyIncome.compareTo(
-                a.remainingMonthlyIncome,
-              ),
+          offers = List<JobOffer>.from(ref.read(jobOffersProvider).activeOffers)
+            ..sort(
+              (a, b) =>
+                  b.remainingMonthlyIncome.compareTo(a.remainingMonthlyIncome),
             );
           break;
       }
     }
 
-    final query = _searchController.text
-        .trim()
-        .toLowerCase();
+    final query = _searchController.text.trim().toLowerCase();
 
     if (query.isEmpty) return offers;
 
@@ -107,7 +92,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   List<JobOffer> get _selectedOffers {
-    return widget.controller.activeOffers
+    return ref
+        .read(jobOffersProvider)
+        .activeOffers
         .where((offer) => _selectedIds.contains(offer.id))
         .toList();
   }
@@ -116,10 +103,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -142,11 +126,11 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   Future<void> _toggleArchive(JobOffer offer) async {
-    if (widget.controller.isSaving) return;
+    if (ref.read(jobOffersProvider).isSaving) return;
 
     final success = offer.isArchived
-        ? await widget.controller.restoreOffer(offer.id)
-        : await widget.controller.archiveOffer(offer.id);
+        ? await ref.read(jobOffersProvider.notifier).restoreOffer(offer.id)
+        : await ref.read(jobOffersProvider.notifier).archiveOffer(offer.id);
 
     if (!mounted) return;
 
@@ -162,7 +146,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
       );
     } else {
       _showMessage(
-        widget.controller.errorMessage ??
+        ref.read(jobOffersProvider).errorMessage ??
             'Gagal memperbarui tawaran.',
       );
     }
@@ -177,9 +161,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
             borderRadius: BorderRadius.circular(22),
           ),
           title: const Text('Hapus tawaran?'),
-          content: Text(
-            '"${offer.title}" akan dihapus permanen.',
-          ),
+          content: Text('"${offer.title}" akan dihapus permanen.'),
           actions: [
             TextButton(
               onPressed: () {
@@ -188,9 +170,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
               child: const Text('Batal'),
             ),
             FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () {
                 Navigator.pop(dialogContext, true);
               },
@@ -203,9 +183,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
 
     if (confirmed != true || !mounted) return;
 
-    final success = await widget.controller.deleteOffer(
-      offer.id,
-    );
+    final success = await ref
+        .read(jobOffersProvider.notifier)
+        .deleteOffer(offer.id);
 
     if (!mounted) return;
 
@@ -217,8 +197,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
       _showMessage('Tawaran berhasil dihapus.');
     } else {
       _showMessage(
-        widget.controller.errorMessage ??
-            'Gagal menghapus tawaran.',
+        ref.read(jobOffersProvider).errorMessage ?? 'Gagal menghapus tawaran.',
       );
     }
   }
@@ -271,10 +250,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                   const SizedBox(height: 4),
                   const Text(
                     'Temukan pilihan terbaikmu',
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: muted, fontSize: 12),
                   ),
                 ],
               ),
@@ -288,11 +264,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 child: const SizedBox(
                   width: 47,
                   height: 47,
-                  child: Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 25,
-                  ),
+                  child: Icon(Icons.add_rounded, color: Colors.white, size: 25),
                 ),
               ),
             ),
@@ -308,10 +280,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF087557),
-                darkGreen,
-              ],
+              colors: [Color(0xFF087557), darkGreen],
             ),
             borderRadius: BorderRadius.circular(23),
           ),
@@ -332,7 +301,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     ),
                     const SizedBox(height: 7),
                     Text(
-                      '${widget.controller.activeCount}',
+                      '${ref.read(jobOffersProvider).activeCount}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 33,
@@ -341,7 +310,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${widget.controller.evaluatedOffersCount} sudah dinilai',
+                      '${ref.read(jobOffersProvider).evaluatedOffersCount} sudah dinilai',
                       style: const TextStyle(
                         color: Color(0xFFC6ECDD),
                         fontSize: 11,
@@ -374,14 +343,8 @@ class _JobOffersPageState extends State<JobOffersPage> {
           onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: 'Cari posisi atau perusahaan...',
-            hintStyle: const TextStyle(
-              fontSize: 13,
-              color: muted,
-            ),
-            prefixIcon: const Icon(
-              Icons.search_rounded,
-              color: muted,
-            ),
+            hintStyle: const TextStyle(fontSize: 13, color: muted),
+            prefixIcon: const Icon(Icons.search_rounded, color: muted),
             suffixIcon: _searchController.text.isEmpty
                 ? null
                 : IconButton(
@@ -389,9 +352,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                       _searchController.clear();
                       setState(() {});
                     },
-                    icon: const Icon(
-                      Icons.close_rounded,
-                    ),
+                    icon: const Icon(Icons.close_rounded),
                   ),
             filled: true,
             fillColor: Theme.of(context).colorScheme.surface,
@@ -409,7 +370,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
             Expanded(
               child: _filterButton(
                 'Aktif',
-                widget.controller.activeCount,
+                ref.read(jobOffersProvider).activeCount,
                 !_showArchived,
                 () {
                   setState(() {
@@ -422,7 +383,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
             Expanded(
               child: _filterButton(
                 'Arsip',
-                widget.controller.archivedCount,
+                ref.read(jobOffersProvider).archivedCount,
                 _showArchived,
                 () {
                   setState(() {
@@ -439,19 +400,12 @@ class _JobOffersPageState extends State<JobOffersPage> {
           const SizedBox(height: 15),
           Row(
             children: [
-              const Icon(
-                Icons.sort_rounded,
-                color: muted,
-                size: 19,
-              ),
+              const Icon(Icons.sort_rounded, color: muted, size: 19),
               const SizedBox(width: 7),
               const Expanded(
                 child: Text(
                   'Urutkan tawaran',
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: muted, fontSize: 12),
                 ),
               ),
               PopupMenuButton<_OfferSort>(
@@ -510,24 +464,17 @@ class _JobOffersPageState extends State<JobOffersPage> {
     VoidCallback onTap,
   ) {
     return Material(
-      color: selected
-          ? darkGreen
-          : Theme.of(context).colorScheme.surface,
+      color: selected ? darkGreen : Theme.of(context).colorScheme.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected
-                  ? darkGreen
-                  : Theme.of(context).dividerColor,
+              color: selected ? darkGreen : Theme.of(context).dividerColor,
             ),
           ),
           child: Center(
@@ -547,19 +494,11 @@ class _JobOffersPageState extends State<JobOffersPage> {
     );
   }
 
-  Widget _smallMetric(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _smallMetric(IconData icon, String label, String value) {
     return Expanded(
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: green,
-            size: 17,
-          ),
+          Icon(icon, color: green, size: 17),
           const SizedBox(width: 7),
           Expanded(
             child: Column(
@@ -572,18 +511,10 @@ class _JobOffersPageState extends State<JobOffersPage> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: muted,
-                    fontSize: 10,
-                  ),
-                ),
+                Text(label, style: const TextStyle(color: muted, fontSize: 10)),
               ],
             ),
           ),
@@ -609,8 +540,8 @@ class _JobOffersPageState extends State<JobOffersPage> {
           color: selected
               ? green
               : scheme.brightness == Brightness.dark
-                  ? Colors.white12
-                  : const Color(0xFFE8F0EB),
+              ? Colors.white12
+              : const Color(0xFFE8F0EB),
         ),
         boxShadow: const [
           BoxShadow(
@@ -645,9 +576,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      offer.title.isEmpty
-                          ? 'Tanpa nama posisi'
-                          : offer.title,
+                      offer.title.isEmpty ? 'Tanpa nama posisi' : offer.title,
                       style: TextStyle(
                         color: scheme.onSurface,
                         fontWeight: FontWeight.w800,
@@ -659,10 +588,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                       offer.company.isEmpty
                           ? 'Perusahaan belum diisi'
                           : offer.company,
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: muted, fontSize: 12),
                     ),
                     if (offer.location.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -690,7 +616,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 ),
               ),
               PopupMenuButton<String>(
-                enabled: !widget.controller.isSaving,
+                enabled: !ref.read(jobOffersProvider).isSaving,
                 tooltip: 'Opsi tawaran',
                 onSelected: (value) {
                   switch (value) {
@@ -712,21 +638,11 @@ class _JobOffersPageState extends State<JobOffersPage> {
                   ),
                   PopupMenuItem(
                     value: 'archive',
-                    child: Text(
-                      offer.isArchived
-                          ? 'Pulihkan'
-                          : 'Arsipkan',
-                    ),
+                    child: Text(offer.isArchived ? 'Pulihkan' : 'Arsipkan'),
                   ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Hapus'),
-                  ),
+                  const PopupMenuItem(value: 'delete', child: Text('Hapus')),
                 ],
-                icon: const Icon(
-                  Icons.more_vert_rounded,
-                  color: muted,
-                ),
+                icon: const Icon(Icons.more_vert_rounded, color: muted),
               ),
             ],
           ),
@@ -734,10 +650,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
           const SizedBox(height: 16),
 
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 7,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
@@ -823,10 +736,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 const Expanded(
                   child: Text(
                     'Skor Kelayakan',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),
                 Text(
@@ -846,9 +756,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 value: score / 100,
                 minHeight: 7,
                 backgroundColor: const Color(0xFFE7F1EB),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  statusColor,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(statusColor),
               ),
             ),
           ],
@@ -859,23 +767,16 @@ class _JobOffersPageState extends State<JobOffersPage> {
             children: [
               TextButton.icon(
                 onPressed: () => widget.onEdit(offer),
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 17,
-                ),
+                icon: const Icon(Icons.edit_outlined, size: 17),
                 label: const Text('Lihat Detail'),
-                style: TextButton.styleFrom(
-                  foregroundColor: green,
-                ),
+                style: TextButton.styleFrom(foregroundColor: green),
               ),
               const Spacer(),
               if (!_showArchived)
                 FilterChip(
                   selected: selected,
                   showCheckmark: true,
-                  label: Text(
-                    selected ? 'Dipilih' : 'Bandingkan',
-                  ),
+                  label: Text(selected ? 'Dipilih' : 'Bandingkan'),
                   labelStyle: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -891,26 +792,22 @@ class _JobOffersPageState extends State<JobOffersPage> {
   }
 
   Widget _buildEmptyState() {
-    final searching =
-        _searchController.text.trim().isNotEmpty;
+    final searching = _searchController.text.trim().isNotEmpty;
 
     final title = searching
         ? 'Tawaran tidak ditemukan'
         : _showArchived
-            ? 'Belum ada arsip'
-            : 'Belum ada tawaran';
+        ? 'Belum ada arsip'
+        : 'Belum ada tawaran';
 
     final description = searching
         ? 'Coba kata kunci lainnya.'
         : _showArchived
-            ? 'Tawaran yang diarsipkan muncul di sini.'
-            : 'Tambahkan tawaran pekerjaan pertamamu.';
+        ? 'Tawaran yang diarsipkan muncul di sini.'
+        : 'Tambahkan tawaran pekerjaan pertamamu.';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 38,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 38),
       child: Column(
         children: [
           Container(
@@ -921,9 +818,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              searching
-                  ? Icons.search_off_rounded
-                  : Icons.work_outline_rounded,
+              searching ? Icons.search_off_rounded : Icons.work_outline_rounded,
               color: darkGreen,
               size: 42,
             ),
@@ -931,27 +826,19 @@ class _JobOffersPageState extends State<JobOffersPage> {
           const SizedBox(height: 17),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 7),
           Text(
             description,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              color: muted,
-            ),
+            style: const TextStyle(fontSize: 12, color: muted),
           ),
           if (!_showArchived && !searching) ...[
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: widget.onAdd,
-              style: FilledButton.styleFrom(
-                backgroundColor: darkGreen,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: darkGreen),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Tambah Tawaran'),
             ),
@@ -969,8 +856,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
     return DataRow(
       cells: [
         DataCell(Text(label)),
-        for (final offer in offers)
-          DataCell(Text(formatter(offer))),
+        for (final offer in offers) DataCell(Text(formatter(offer))),
       ],
     );
   }
@@ -985,13 +871,9 @@ class _JobOffersPageState extends State<JobOffersPage> {
 
     final ranked = JobOffer.rankOffers(selected);
 
-    final evaluated = ranked.where(
-      (offer) => offer.worthScore != null,
-    );
+    final evaluated = ranked.where((offer) => offer.worthScore != null);
 
-    final best = evaluated.isEmpty
-        ? null
-        : evaluated.first;
+    final best = evaluated.isEmpty ? null : evaluated.first;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -1002,22 +884,13 @@ class _JobOffersPageState extends State<JobOffersPage> {
         return FractionallySizedBox(
           heightFactor: 0.88,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              18,
-              9,
-              18,
-              20,
-            ),
+            padding: const EdgeInsets.fromLTRB(18, 9, 18, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Row(
                   children: [
-                    Icon(
-                      Icons.compare_arrows_rounded,
-                      color: green,
-                      size: 24,
-                    ),
+                    Icon(Icons.compare_arrows_rounded, color: green, size: 24),
                     SizedBox(width: 9),
                     Expanded(
                       child: Text(
@@ -1033,10 +906,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 const SizedBox(height: 6),
                 Text(
                   '${ranked.length} pekerjaan dipilih',
-                  style: const TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: muted, fontSize: 12),
                 ),
                 const SizedBox(height: 17),
 
@@ -1050,9 +920,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                         dataRowMinHeight: 50,
                         dataRowMaxHeight: 85,
                         columns: [
-                          const DataColumn(
-                            label: Text('Aspek'),
-                          ),
+                          const DataColumn(label: Text('Aspek')),
                           for (final offer in ranked)
                             DataColumn(
                               label: SizedBox(
@@ -1060,8 +928,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                                 child: Text(
                                   offer.title,
                                   maxLines: 2,
-                                  overflow:
-                                      TextOverflow.ellipsis,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ),
@@ -1070,16 +937,12 @@ class _JobOffersPageState extends State<JobOffersPage> {
                           _comparisonRow(
                             'Perusahaan',
                             ranked,
-                            (o) => o.company.isEmpty
-                                ? '-'
-                                : o.company,
+                            (o) => o.company.isEmpty ? '-' : o.company,
                           ),
                           _comparisonRow(
                             'Gaji bruto',
                             ranked,
-                            (o) => rupiah(
-                              o.grossMonthlyIncome,
-                            ),
+                            (o) => rupiah(o.grossMonthlyIncome),
                           ),
                           _comparisonRow(
                             'Gaji bersih',
@@ -1089,16 +952,12 @@ class _JobOffersPageState extends State<JobOffersPage> {
                           _comparisonRow(
                             'Biaya kerja',
                             ranked,
-                            (o) => rupiah(
-                              o.totalMonthlyWorkCosts,
-                            ),
+                            (o) => rupiah(o.totalMonthlyWorkCosts),
                           ),
                           _comparisonRow(
                             'Uang tersisa',
                             ranked,
-                            (o) => rupiah(
-                              o.remainingMonthlyIncome,
-                            ),
+                            (o) => rupiah(o.remainingMonthlyIncome),
                           ),
                           _comparisonRow(
                             'Perjalanan',
@@ -1115,9 +974,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                           _comparisonRow(
                             'Efektif / jam',
                             ranked,
-                            (o) => rupiah(
-                              o.effectiveHourlyIncome,
-                            ),
+                            (o) => rupiah(o.effectiveHourlyIncome),
                           ),
                           _comparisonRow(
                             'Skor',
@@ -1173,10 +1030,7 @@ class _JobOffersPageState extends State<JobOffersPage> {
                 const Text(
                   'Hasil merupakan simulasi berdasarkan '
                   'data dan preferensimu.',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: muted,
-                  ),
+                  style: TextStyle(fontSize: 10, color: muted),
                 ),
               ],
             ),
@@ -1188,135 +1042,103 @@ class _JobOffersPageState extends State<JobOffersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        if (widget.controller.isLoading &&
-            !widget.controller.hasLoaded) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
+    final offerState = ref.watch(jobOffersProvider);
+    if (offerState.isLoading && !offerState.hasLoaded) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        final offers = _visibleOffers();
-        final selectedCount = _selectedOffers.length;
+    final offers = _visibleOffers();
+    final selectedCount = _selectedOffers.length;
 
-        return Stack(
-          children: [
-            RefreshIndicator(
-              onRefresh: () async {
-                await widget.controller.refresh();
-              },
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        17,
-                        17,
-                        17,
-                        0,
-                      ),
-                      child: Column(
-                        children: [
-                          _buildHeader(),
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: () async {
+            await ref.read(jobOffersProvider.notifier).refresh();
+          },
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
+                  child: Column(
+                    children: [
+                      _buildHeader(),
 
-                          if (widget.controller.isSaving)
-                            const Padding(
-                              padding:
-                                  EdgeInsets.only(bottom: 12),
-                              child:
-                                  LinearProgressIndicator(),
-                            ),
-
-                          if (widget.controller.hasError)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: 12),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      widget.controller
-                                              .errorMessage ??
-                                          'Terjadi kesalahan.',
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () {
-                                      widget.controller.refresh();
-                                    },
-                                    icon: const Icon(
-                                      Icons.refresh_rounded,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  if (offers.isEmpty)
-                    SliverToBoxAdapter(
-                      child: _buildEmptyState(),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 17,
-                      ),
-                      sliver: SliverList(
-                        delegate:
-                            SliverChildBuilderDelegate(
-                          (context, index) {
-                            return _buildOfferCard(
-                              offers[index],
-                            );
-                          },
-                          childCount: offers.length,
+                      if (ref.read(jobOffersProvider).isSaving)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 12),
+                          child: LinearProgressIndicator(),
                         ),
-                      ),
-                    ),
 
-                  SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: selectedCount >= 2 ? 105 : 24,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            if (!_showArchived && selectedCount >= 2)
-              Positioned(
-                left: 17,
-                right: 17,
-                bottom: 14,
-                child: SafeArea(
-                  top: false,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: darkGreen,
-                      minimumSize: const Size.fromHeight(55),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(17),
-                      ),
-                    ),
-                    onPressed: _showComparison,
-                    icon: const Icon(
-                      Icons.compare_arrows_rounded,
-                    ),
-                    label: Text(
-                      'Bandingkan $selectedCount Tawaran',
-                    ),
+                      if (ref.read(jobOffersProvider).hasError)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  ref.read(jobOffersProvider).errorMessage ??
+                                      'Terjadi kesalahan.',
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  ref
+                                      .read(jobOffersProvider.notifier)
+                                      .refresh();
+                                },
+                                icon: const Icon(Icons.refresh_rounded),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        );
-      },
+
+              if (offers.isEmpty)
+                SliverToBoxAdapter(child: _buildEmptyState())
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 17),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      return _buildOfferCard(offers[index]);
+                    }, childCount: offers.length),
+                  ),
+                ),
+
+              SliverToBoxAdapter(
+                child: SizedBox(height: selectedCount >= 2 ? 105 : 24),
+              ),
+            ],
+          ),
+        ),
+
+        if (!_showArchived && selectedCount >= 2)
+          Positioned(
+            left: 17,
+            right: 17,
+            bottom: 14,
+            child: SafeArea(
+              top: false,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: darkGreen,
+                  minimumSize: const Size.fromHeight(55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(17),
+                  ),
+                ),
+                onPressed: _showComparison,
+                icon: const Icon(Icons.compare_arrows_rounded),
+                label: Text('Bandingkan $selectedCount Tawaran'),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

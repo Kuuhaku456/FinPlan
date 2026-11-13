@@ -79,113 +79,69 @@ class _MemoryPlanRepository implements PlanRepository {
 // =====================================================
 
 void main() {
-  test(
-    'Rencana keuangan tersimpan dan sinkron dengan Riverpod',
-    () async {
-      // ===============================================
-      // TEST SETUP
-      // ===============================================
+  test('Rencana keuangan tersimpan dan sinkron dengan Riverpod', () async {
+    // ===============================================
+    // TEST SETUP
+    // ===============================================
 
-      final repository = _MemoryPlanRepository();
+    final repository = _MemoryPlanRepository();
 
-      final original = FinancePlan.defaults();
+    final original = FinancePlan.defaults();
 
-      final legacy = PlanController(
-        repository,
-        original,
-        ThemeMode.system,
-      );
+    final legacy = PlanController(repository, original, ThemeMode.system);
 
-      final container = ProviderContainer(
-        overrides: [
-          legacyPlanControllerProvider.overrideWithValue(
-            legacy,
-          ),
-        ],
-      );
+    final container = ProviderContainer(
+      overrides: [legacyPlanControllerProvider.overrideWithValue(legacy)],
+    );
 
-      // Membersihkan resource setelah pengujian.
-      addTearDown(() {
-        container.dispose();
-        legacy.dispose();
-      });
+    // Membersihkan resource setelah pengujian.
+    addTearDown(() {
+      container.dispose();
+      legacy.dispose();
+    });
 
-      // ===============================================
-      // TEST 1 - MEMBACA DATA AWAL
-      // ===============================================
+    // ===============================================
+    // TEST 1 - MEMBACA DATA AWAL
+    // ===============================================
 
-      expect(
-        container.read(financePlanProvider),
-        same(original),
-      );
+    expect(container.read(financePlanProvider), same(original));
 
-      // ===============================================
-      // TEST 2 - MEMPERBARUI GAJI
-      // ===============================================
+    // ===============================================
+    // TEST 2 - MEMPERBARUI GAJI
+    // ===============================================
 
-      final changed = original.copyWith(
-        actualIncome: original.actualIncome + 100000,
-      );
+    final changed = original.copyWith(
+      actualIncome: original.actualIncome + 100000,
+    );
 
-      await container
-          .read(financePlanProvider.notifier)
-          .savePlan(changed);
+    await container.read(financePlanProvider.notifier).savePlan(changed);
 
-      expect(
-        repository.stored,
-        same(changed),
-      );
+    expect(repository.stored, same(changed));
 
-      expect(
-        container.read(financePlanProvider),
-        same(changed),
-      );
+    expect(container.read(financePlanProvider), same(changed));
 
-      // ===============================================
-      // TEST 3 - RINGKASAN BULANAN
-      // ===============================================
+    // ===============================================
+    // TEST 3 - RINGKASAN BULANAN
+    // ===============================================
 
-      final summary = container.read(
-        monthlyPlanSummaryProvider,
-      );
+    final summary = container.read(monthlyPlanSummaryProvider);
 
-      expect(
-        summary,
-        isNotNull,
-      );
+    expect(summary, isNotNull);
 
-      expect(
-        summary!.income,
-        changed.totalMonthlyIncome,
-      );
+    expect(summary!.income, changed.totalMonthlyIncome);
 
-      expect(
-        summary.needs,
-        changed.expenses,
-      );
+    expect(summary.needs, changed.expenses);
 
-      expect(
-        summary.remainingAfterPlan,
-        changed.plannedDifference,
-      );
+    expect(summary.remainingAfterPlan, changed.plannedDifference);
 
-      // ===============================================
-      // TEST 4 - RESET RENCANA KEUANGAN
-      // ===============================================
+    // ===============================================
+    // TEST 4 - RESET RENCANA KEUANGAN
+    // ===============================================
 
-      await container
-          .read(financePlanProvider.notifier)
-          .clearPlan();
+    await container.read(financePlanProvider.notifier).clearPlan();
 
-      expect(
-        container.read(financePlanProvider),
-        isNull,
-      );
+    expect(container.read(financePlanProvider), isNull);
 
-      expect(
-        container.read(monthlyPlanSummaryProvider),
-        isNull,
-      );
-    },
-  );
+    expect(container.read(monthlyPlanSummaryProvider), isNull);
+  });
 }

@@ -5,11 +5,7 @@ void main() {
   testWidgets('FinPlan widget test', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: Text('FinPlan'),
-          ),
-        ),
+        home: Scaffold(body: Center(child: Text('FinPlan'))),
       ),
     );
 

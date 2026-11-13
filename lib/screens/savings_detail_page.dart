@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/money.dart';
 import '../models/savings_goal.dart';
 
-import '../state/savings_controller.dart';
 import '../state/savings_notifier.dart';
 
 // =====================================================
@@ -98,13 +97,11 @@ class _RupiahInputFormatter extends TextInputFormatter {
 class SavingsDetailPage extends ConsumerStatefulWidget {
   const SavingsDetailPage({
     super.key,
-    required this.controller,
+    
     required this.goalId,
     required this.onEditGoal,
   });
 
-  // Kompatibilitas dengan main.dart / FinanceShell.
-  final SavingsController controller;
 
   final String goalId;
 
@@ -148,8 +145,7 @@ class _SavingsDetailPageState
   ) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.goalId != widget.goalId ||
-        oldWidget.controller != widget.controller) {
+    if (oldWidget.goalId != widget.goalId) {
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -185,7 +181,7 @@ class _SavingsDetailPageState
         widget.goalId,
       );
     } catch (_) {
-      // Pesan error disimpan oleh SavingsController
+      // Pesan error disimpan oleh provider tabungan
       // dan diteruskan melalui SavingsNotifier.
     }
   }

@@ -15,11 +15,8 @@ import '../../../screens/sisa_uang_page.dart';
 import '../../../screens/transactions_page.dart';
 
 import '../../../state/finance_plan_notifier.dart';
-import '../../../state/job_offer_controller.dart';
-import '../../../state/plan_controller.dart';
-import '../../../state/savings_controller.dart';
+import '../../../state/job_offer_notifier.dart';
 import '../../../state/savings_notifier.dart';
-import '../../../state/transaction_controller.dart';
 import '../../../state/transaction_notifier.dart';
 
 import '../../../widgets/salary_calculator.dart';
@@ -39,18 +36,7 @@ import 'dashboard_page.dart';
 // ============================================================
 
 class FinanceShell extends ConsumerStatefulWidget {
-  const FinanceShell({
-    super.key,
-    required this.planController,
-    required this.transactionController,
-    required this.savingsController,
-    required this.jobOfferController,
-  });
-
-  final PlanController planController;
-  final TransactionController transactionController;
-  final SavingsController savingsController;
-  final JobOfferController jobOfferController;
+  const FinanceShell({super.key});
 
   @override
   ConsumerState<FinanceShell> createState() {
@@ -84,9 +70,7 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
 
     // Memuat Kantong Tabungan.
     try {
-      await ref
-          .read(savingsStateProvider.notifier)
-          .loadGoals();
+      await ref.read(savingsStateProvider.notifier).loadGoals();
     } catch (_) {
       // Gagal memuat tabungan tidak menghentikan aplikasi.
     }
@@ -95,7 +79,7 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
 
     // Memuat data tawaran kerja.
     try {
-      await widget.jobOfferController.initialize();
+      await ref.read(jobOffersProvider.notifier).initialize();
     } catch (_) {
       // Planner tetap dapat digunakan.
     }
@@ -110,31 +94,21 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       return;
     }
 
-    ref
-        .read(financeShellUiProvider.notifier)
-        .setChangingTheme(true);
+    ref.read(financeShellUiProvider.notifier).setChangingTheme(true);
 
     try {
       await ref
           .read(appSettingsProvider.notifier)
-          .toggleTheme(
-            Theme.of(context).brightness,
-          );
+          .toggleTheme(Theme.of(context).brightness);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Gagal mengganti tema aplikasi.',
-            ),
-          ),
+          const SnackBar(content: Text('Gagal mengganti tema aplikasi.')),
         );
       }
     } finally {
       if (mounted) {
-        ref
-            .read(financeShellUiProvider.notifier)
-            .setChangingTheme(false);
+        ref.read(financeShellUiProvider.notifier).setChangingTheme(false);
       }
     }
   }
@@ -144,16 +118,12 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // ==========================================================
 
   Future<void> _openProfile() async {
-    final store = ref.read(
-      finPlanProfileStoreProvider,
-    );
+    final store = ref.read(finPlanProfileStoreProvider);
 
     FinPlanProfile profile;
 
     try {
-      profile = await ref.read(
-        finPlanProfileProvider.future,
-      );
+      profile = await ref.read(finPlanProfileProvider.future);
     } catch (_) {
       profile = const FinPlanProfile();
     }
@@ -181,28 +151,12 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // ==========================================================
 
   Future<void> _openSettings() async {
-    final textScale = ref.read(
-      appSettingsProvider,
-    ).fontScale;
-
-    final onTextScaleChanged = ref
-        .read(appSettingsProvider.notifier)
-        .setFontScale;
-
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder: (_) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Pengaturan'),
-            ),
-            body: SafeArea(
-              child: SettingsPage(
-                controller: widget.planController,
-                textScale: textScale,
-                onTextScaleChanged: onTextScaleChanged,
-              ),
-            ),
+            appBar: AppBar(title: const Text('Pengaturan')),
+            body: SafeArea(child: const SettingsPage()),
           );
         },
       ),
@@ -213,16 +167,11 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // TAMBAH / EDIT KANTONG TABUNGAN
   // ==========================================================
 
-  Future<void> _openSavingsForm({
-    String? goalId,
-  }) async {
+  Future<void> _openSavingsForm({String? goalId}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) {
-          return AddSavingsGoalPage(
-            controller: widget.savingsController,
-            goalId: goalId,
-          );
+          return AddSavingsGoalPage(goalId: goalId);
         },
       ),
     );
@@ -232,19 +181,14 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // DETAIL KANTONG TABUNGAN
   // ==========================================================
 
-  Future<void> _openSavingsDetail(
-    String goalId,
-  ) async {
+  Future<void> _openSavingsDetail(String goalId) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) {
           return SavingsDetailPage(
-            controller: widget.savingsController,
             goalId: goalId,
             onEditGoal: (id) {
-              unawaited(
-                _openSavingsForm(goalId: id),
-              );
+              unawaited(_openSavingsForm(goalId: id));
             },
           );
         },
@@ -261,16 +205,11 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       MaterialPageRoute<void>(
         builder: (_) {
           return SavingsPage(
-            controller: widget.savingsController,
             onCreateGoal: () {
-              unawaited(
-                _openSavingsForm(),
-              );
+              unawaited(_openSavingsForm());
             },
             onOpenGoal: (goalId) {
-              unawaited(
-                _openSavingsDetail(goalId),
-              );
+              unawaited(_openSavingsDetail(goalId));
             },
           );
         },
@@ -283,9 +222,7 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // ==========================================================
 
   Future<void> _openBudgetPlanner() async {
-    final initialPlan = ref.read(
-      financePlanProvider,
-    );
+    final initialPlan = ref.read(financePlanProvider);
 
     if (initialPlan == null) {
       if (!mounted) return;
@@ -306,25 +243,15 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       MaterialPageRoute<void>(
         builder: (_) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                'Rencana & Anggaran',
-              ),
-            ),
+            appBar: AppBar(title: const Text('Rencana & Anggaran')),
             body: SafeArea(
               child: Consumer(
                 builder: (context, ref, _) {
-                  final current =
-                      ref.watch(financePlanProvider) ??
-                          initialPlan;
+                  final current = ref.watch(financePlanProvider) ?? initialPlan;
 
                   return PlannerPage(
                     plan: current,
-                    onSave: ref
-                        .read(financePlanProvider.notifier)
-                        .savePlan,
-                    jobOfferController:
-                        widget.jobOfferController,
+                    onSave: ref.read(financePlanProvider.notifier).savePlan,
                   );
                 },
               ),
@@ -344,22 +271,14 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       MaterialPageRoute<void>(
         builder: (_) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                'Kalkulator Gaji',
-              ),
-            ),
+            appBar: AppBar(title: const Text('Kalkulator Gaji')),
             body: SafeArea(
               child: Consumer(
                 builder: (context, ref, _) {
-                  final salary = ref
-                          .watch(financePlanProvider)
-                          ?.totalMonthlyIncome ??
-                      0;
+                  final salary =
+                      ref.watch(financePlanProvider)?.totalMonthlyIncome ?? 0;
 
-                  return SalaryCalculatorSection(
-                    initialMonthlySalary: salary,
-                  );
+                  return SalaryCalculatorSection(initialMonthlySalary: salary);
                 },
               ),
             ),
@@ -387,16 +306,11 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
   // TAMBAH / EDIT TAWARAN KERJA
   // ==========================================================
 
-  Future<void> _openJobOfferForm({
-    JobOffer? offer,
-  }) async {
+  Future<void> _openJobOfferForm({JobOffer? offer}) async {
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) {
-          return AddJobOfferPage(
-            controller: widget.jobOfferController,
-            initialOffer: offer,
-          );
+          return AddJobOfferPage(initialOffer: offer);
         },
       ),
     );
@@ -411,25 +325,14 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       MaterialPageRoute<void>(
         builder: (_) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                'Tawaran Kerja',
-              ),
-            ),
+            appBar: AppBar(title: const Text('Tawaran Kerja')),
             body: SafeArea(
               child: JobOffersPage(
-                controller: widget.jobOfferController,
                 onAdd: () {
-                  unawaited(
-                    _openJobOfferForm(),
-                  );
+                  unawaited(_openJobOfferForm());
                 },
                 onEdit: (offer) {
-                  unawaited(
-                    _openJobOfferForm(
-                      offer: offer,
-                    ),
-                  );
+                  unawaited(_openJobOfferForm(offer: offer));
                 },
               ),
             ),
@@ -445,42 +348,31 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
 
   @override
   Widget build(BuildContext context) {
-    final plan = ref.watch(
-      financePlanProvider,
-    );
+    final plan = ref.watch(financePlanProvider);
 
-    final shell = ref.watch(
-      financeShellUiProvider,
-    );
+    final shell = ref.watch(financeShellUiProvider);
 
-    final fontScale = ref.watch(
-      appSettingsProvider,
-    ).fontScale;
+    final fontScale = ref.watch(appSettingsProvider).fontScale;
 
-    final profile = ref.watch(
-      finPlanProfileProvider,
-    ).when(
-      data: (value) => value,
-      loading: () => const FinPlanProfile(),
-      error: (_, __) => const FinPlanProfile(),
-    );
+    final profile = ref
+        .watch(finPlanProfileProvider)
+        .when(
+          data: (value) => value,
+          loading: () => const FinPlanProfile(),
+          error: (_, _) => const FinPlanProfile(),
+        );
 
     // ========================================================
     // LOADING FINANCE PLAN
     // ========================================================
 
     if (plan == null) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final scheme = Theme.of(context).colorScheme;
 
-    final isDark =
-        Theme.of(context).brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // ========================================================
     // DAFTAR HALAMAN UTAMA
@@ -494,16 +386,13 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       DashboardPage(
         plan: plan,
         onOpenPlanner: () {
-          ref
-              .read(financeShellUiProvider.notifier)
-              .selectTab(1);
+          ref.read(financeShellUiProvider.notifier).selectTab(1);
         },
       ),
 
       // ======================================================
       // TAB 2: PLANNER
       // ======================================================
-
       PlannerHubPage(
         plan: plan,
         onOpenBudget: () {
@@ -526,15 +415,11 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       // ======================================================
       // TAB 3: TRANSAKSI
       // ======================================================
-
-      TransactionsPage(
-        controller: widget.transactionController,
-      ),
+      TransactionsPage(),
 
       // ======================================================
       // TAB 4: PROFIL
       // ======================================================
-
       FinPlanProfileTab(
         profile: profile,
         onEditProfile: () {
@@ -577,26 +462,17 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
 
             const Text(
               'FinPlan',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 22,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 22),
             ),
           ],
         ),
 
         actions: [
           IconButton(
-            tooltip: isDark
-                ? 'Light Mode'
-                : 'Dark Mode',
-            onPressed: shell.isChangingTheme
-                ? null
-                : _toggleTheme,
+            tooltip: isDark ? 'Light Mode' : 'Dark Mode',
+            onPressed: shell.isChangingTheme ? null : _toggleTheme,
             icon: Icon(
-              isDark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
             ),
           ),
 
@@ -607,29 +483,21 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
       // ======================================================
       // BODY
       // ======================================================
-
       body: SafeArea(
-        child: IndexedStack(
-          index: shell.selectedIndex,
-          children: pages,
-        ),
+        child: IndexedStack(index: shell.selectedIndex, children: pages),
       ),
 
       // ======================================================
       // BOTTOM NAVIGATION
       // ======================================================
-
       bottomNavigationBar: NavigationBar(
-        height: (72 * fontScale)
-            .clamp(72.0, 110.0)
-            .toDouble(),
+        height: (72 * fontScale).clamp(72.0, 110.0).toDouble(),
 
         selectedIndex: shell.selectedIndex,
 
         indicatorColor: scheme.primaryContainer,
 
-        labelBehavior:
-            NavigationDestinationLabelBehavior.alwaysShow,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
 
         onDestinationSelected: ref
             .read(financeShellUiProvider.notifier)
@@ -637,42 +505,26 @@ class _FinanceShellState extends ConsumerState<FinanceShell> {
 
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.home_rounded,
-            ),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
             label: 'Home',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.grid_view_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.grid_view_rounded,
-            ),
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view_rounded),
             label: 'Planner',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.receipt_long_outlined,
-            ),
-            selectedIcon: Icon(
-              Icons.receipt_long_rounded,
-            ),
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long_rounded),
             label: 'Transaksi',
           ),
 
           NavigationDestination(
-            icon: Icon(
-              Icons.person_outline_rounded,
-            ),
-            selectedIcon: Icon(
-              Icons.person_rounded,
-            ),
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded),
             label: 'Profil',
           ),
         ],

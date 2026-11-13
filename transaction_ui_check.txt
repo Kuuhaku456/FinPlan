@@ -1,0 +1,53 @@
+========================================
+FILE: lib/screens/transactions_page.dart
+========================================
+Line 19: class TransactionsPage extends ConsumerStatefulWidget {
+Line 20: const TransactionsPage({super.key, required this.controller});
+Line 22: final TransactionController controller;
+Line 112: ref.read(transactionStateProvider.notifier).loadTransactions();
+Line 144: final state = ref.read(transactionStateProvider);
+Line 150: ref.read(transactionStateProvider.notifier).loadMore();
+Line 174: final currentMonth = ref.read(transactionStateProvider).selectedMonth;
+Line 186: ref.read(transactionStateProvider.notifier).selectMonth(newMonth);
+Line 198: controller: widget.controller,
+Line 304: .read(transactionStateProvider.notifier)
+Line 682: ref.read(transactionStateProvider.notifier).loadMore();
+Line 812: ref.read(transactionStateProvider.notifier).refresh();
+Line 826: final state = ref.watch(transactionStateProvider);
+Line 848: return ref.read(transactionStateProvider.notifier).refresh();
+Line 888: .read(transactionStateProvider.notifier)
+
+========================================
+FILE: lib/screens/add_transaction_page.dart
+========================================
+Line 69: class AddTransactionPage
+Line 70: extends ConsumerStatefulWidget {
+Line 73: required this.controller,
+Line 79: final TransactionController controller;
+Line 332: ref.read(transactionStateProvider).isSaving) {
+Line 368: transactionStateProvider.notifier,
+Line 981: transactionStateProvider.select(
+
+========================================
+FILE: lib/features/dashboard/presentation/finance_shell.dart
+========================================
+Line 41: class FinanceShell extends ConsumerStatefulWidget {
+Line 45: required this.transactionController,
+Line 50: final TransactionController transactionController;
+Line 81: ref.read(transactionStateProvider);
+Line 447: TransactionsPage(controller: widget.transactionController),
+
+========================================
+FILE: lib/main.dart
+========================================
+Line 151: final transactionController = TransactionController(TransactionRepository());
+Line 181: legacyTransactionControllerProvider.overrideWithValue(
+Line 182: transactionController,
+Line 196: transactionController: transactionController,
+Line 207: class FinPlanApp extends ConsumerStatefulWidget {
+Line 211: required this.transactionController,
+Line 216: final TransactionController transactionController;
+Line 302: transactionController: widget.transactionController,
+Line 316: unawaited(widget.transactionController.closeDatabase());
+Line 318: widget.transactionController.dispose();
+

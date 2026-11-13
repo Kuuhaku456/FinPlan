@@ -1,13 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import '../lib/data/transaction_repository.dart';
-import '../lib/models/finance_transaction.dart';
-import '../lib/models/transaction_category.dart';
-import '../lib/state/transaction_controller.dart';
-import '../lib/state/transaction_notifier.dart';
+import 'package:celeng_id/data/transaction_repository.dart';
+import 'package:celeng_id/models/finance_transaction.dart';
+import 'package:celeng_id/models/transaction_category.dart';
+import 'package:celeng_id/state/transaction_controller.dart';
+import 'package:celeng_id/state/transaction_notifier.dart';
 
 // ======================================================
 // FINPLAN - TRANSACTION & DASHBOARD INTEGRATION TEST
@@ -73,9 +72,7 @@ void main() {
   });
 
   setUp(() async {
-    database = await databaseFactoryFfi.openDatabase(
-      inMemoryDatabasePath,
-    );
+    database = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
 
     await database.execute('''
       CREATE TABLE transactions (
@@ -108,72 +105,65 @@ void main() {
   // TEST 1: TRANSAKSI DAN DASHBOARD
   // ====================================================
 
-  test(
-    'Menambah transaksi memperbarui ringkasan Dashboard',
-    () async {
-      // Hubungkan controller ke Riverpod.
-      final container = ProviderContainer(
-        overrides: [
-          legacyTransactionControllerProvider.overrideWithValue(
-            controller,
-          ),
-        ],
-      );
+  test('Menambah transaksi memperbarui ringkasan Dashboard', () async {
+    // Hubungkan controller ke Riverpod.
+    final container = ProviderContainer(
+      overrides: [
+        legacyTransactionControllerProvider.overrideWithValue(controller),
+      ],
+    );
 
-      addTearDown(container.dispose);
+    addTearDown(container.dispose);
 
-      // Aktifkan provider.
-      container.read(transactionStateProvider);
+    // Aktifkan provider.
+    container.read(transactionStateProvider);
 
-      final notifier = container.read(
-        transactionStateProvider.notifier,
-      );
+    final notifier = container.read(transactionStateProvider.notifier);
 
-      await notifier.loadTransactions();
+    await notifier.loadTransactions();
 
-      // Kondisi awal.
-      var state = container.read(transactionStateProvider);
+    // Kondisi awal.
+    var state = container.read(transactionStateProvider);
 
-      expect(state.totalIncome, 0);
-      expect(state.totalExpense, 0);
-      expect(state.netAmount, 0);
+    expect(state.totalIncome, 0);
+    expect(state.totalExpense, 0);
+    expect(state.netAmount, 0);
 
-      // Tambahkan pemasukan.
-      await notifier.addTransaction(
-        _transaction(
-          day: 2,
-          amount: 5000000,
-          type: TransactionType.income,
-          description: 'Gaji bulanan',
-        ),
-      );
+    // Tambahkan pemasukan.
+    await notifier.addTransaction(
+      _transaction(
+        day: 2,
+        amount: 5000000,
+        type: TransactionType.income,
+        description: 'Gaji bulanan',
+      ),
+    );
 
-      state = container.read(transactionStateProvider);
+    state = container.read(transactionStateProvider);
 
-      expect(state.totalIncome, 5000000);
-      expect(state.totalExpense, 0);
-      expect(state.netAmount, 5000000);
+    expect(state.totalIncome, 5000000);
+    expect(state.totalExpense, 0);
+    expect(state.netAmount, 5000000);
 
-      // Tambahkan pengeluaran.
-      await notifier.addTransaction(
-        _transaction(
-          day: 3,
-          amount: 50000,
-          type: TransactionType.expense,
-          category: TransactionCategory.food,
-          description: 'Makan siang',
-        ),
-      );
+    // Tambahkan pengeluaran.
+    await notifier.addTransaction(
+      _transaction(
+        day: 3,
+        amount: 50000,
+        type: TransactionType.expense,
+        category: TransactionCategory.food,
+        description: 'Makan siang',
+      ),
+    );
 
-      state = container.read(transactionStateProvider);
+    state = container.read(transactionStateProvider);
 
-      expect(state.totalIncome, 5000000);
-      expect(state.totalExpense, 50000);
-      expect(state.netAmount, 4950000);
-      expect(state.transactionCount, 2);
-      expect(state.transactions.length, 2);
-    },
-  );
+    expect(state.totalIncome, 5000000);
+    expect(state.totalExpense, 50000);
+    expect(state.netAmount, 4950000);
+    expect(state.transactionCount, 2);
+    expect(state.transactions.length, 2);
+  });
 
   // ====================================================
   // TEST 2: CREATE, UPDATE, DELETE
@@ -223,17 +213,16 @@ void main() {
       expect(savedTransaction.description, 'Makan dan minum');
 
       // Hapus transaksi.
-      final deleted = await controller.deleteTransaction(
-        transactionId,
-      );
+      final deleted = await controller.deleteTransaction(transactionId);
 
       expect(deleted, isTrue);
       expect(controller.totalExpense, 0);
       expect(controller.transactionCount, 0);
 
       // Pastikan data benar-benar hilang.
-      final deletedTransaction =
-          await controller.getTransactionById(transactionId);
+      final deletedTransaction = await controller.getTransactionById(
+        transactionId,
+      );
 
       expect(deletedTransaction, isNull);
     },
@@ -357,74 +346,71 @@ void main() {
   // TEST 5: RINGKASAN BERDASARKAN AKUN
   // ====================================================
 
-  test(
-    'Ringkasan akun BCA tidak tercampur dengan akun DANA',
-    () async {
-      // Pemasukan BCA.
-      await repository.insertTransaction(
-        _transaction(
-          day: 5,
-          amount: 3000000,
-          type: TransactionType.income,
-          description: 'Gaji',
-          accountName: 'BCA',
-        ),
-      );
-
-      // Pengeluaran BCA.
-      await repository.insertTransaction(
-        _transaction(
-          day: 6,
-          amount: 100000,
-          type: TransactionType.expense,
-          description: 'Belanja',
-          accountName: 'BCA',
-        ),
-      );
-
-      // Pengeluaran DANA.
-      await repository.insertTransaction(
-        _transaction(
-          day: 7,
-          amount: 25000,
-          type: TransactionType.expense,
-          description: 'Jajan',
-          accountType: AccountType.eMoney,
-          accountName: 'DANA',
-        ),
-      );
-
-      await controller.loadTransactions();
-
-      // Total seluruh akun.
-      expect(controller.totalIncome, 3000000);
-      expect(controller.totalExpense, 125000);
-
-      // Khusus akun BCA.
-      final bcaSummary = await controller.getAccountSummary(
-        accountType: AccountType.bank,
+  test('Ringkasan akun BCA tidak tercampur dengan akun DANA', () async {
+    // Pemasukan BCA.
+    await repository.insertTransaction(
+      _transaction(
+        day: 5,
+        amount: 3000000,
+        type: TransactionType.income,
+        description: 'Gaji',
         accountName: 'BCA',
-        startDate: DateTime(2026, 11, 1),
-        endDate: DateTime(2026, 11, 30),
-      );
+      ),
+    );
 
-      expect(bcaSummary.totalIncome, 3000000);
-      expect(bcaSummary.totalExpense, 100000);
-      expect(bcaSummary.netAmount, 2900000);
-      expect(bcaSummary.transactionCount, 2);
+    // Pengeluaran BCA.
+    await repository.insertTransaction(
+      _transaction(
+        day: 6,
+        amount: 100000,
+        type: TransactionType.expense,
+        description: 'Belanja',
+        accountName: 'BCA',
+      ),
+    );
 
-      // Khusus akun DANA.
-      final danaSummary = await controller.getAccountSummary(
+    // Pengeluaran DANA.
+    await repository.insertTransaction(
+      _transaction(
+        day: 7,
+        amount: 25000,
+        type: TransactionType.expense,
+        description: 'Jajan',
         accountType: AccountType.eMoney,
         accountName: 'DANA',
-        startDate: DateTime(2026, 11, 1),
-        endDate: DateTime(2026, 11, 30),
-      );
+      ),
+    );
 
-      expect(danaSummary.totalIncome, 0);
-      expect(danaSummary.totalExpense, 25000);
-      expect(danaSummary.netAmount, -25000);
-      expect(danaSummary.transactionCount, 1);
-    },
-  );
+    await controller.loadTransactions();
+
+    // Total seluruh akun.
+    expect(controller.totalIncome, 3000000);
+    expect(controller.totalExpense, 125000);
+
+    // Khusus akun BCA.
+    final bcaSummary = await controller.getAccountSummary(
+      accountType: AccountType.bank,
+      accountName: 'BCA',
+      startDate: DateTime(2026, 11, 1),
+      endDate: DateTime(2026, 11, 30),
+    );
+
+    expect(bcaSummary.totalIncome, 3000000);
+    expect(bcaSummary.totalExpense, 100000);
+    expect(bcaSummary.netAmount, 2900000);
+    expect(bcaSummary.transactionCount, 2);
+
+    // Khusus akun DANA.
+    final danaSummary = await controller.getAccountSummary(
+      accountType: AccountType.eMoney,
+      accountName: 'DANA',
+      startDate: DateTime(2026, 11, 1),
+      endDate: DateTime(2026, 11, 30),
+    );
+
+    expect(danaSummary.totalIncome, 0);
+    expect(danaSummary.totalExpense, 25000);
+    expect(danaSummary.netAmount, -25000);
+    expect(danaSummary.transactionCount, 1);
+  });
 }

@@ -1,0 +1,449 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'core/theme/app_theme.dart';
+
+import 'data/job_offer_repository.dart';
+import 'data/plan_repository.dart';
+import 'data/savings_repository.dart';
+import 'data/transaction_repository.dart';
+
+import 'features/dashboard/presentation/finance_shell.dart';
+import 'features/settings/providers/app_settings_provider.dart';
+
+import 'models/finance_plan.dart';
+
+import 'screens/welcome_slides_page.dart';
+
+import 'state/finance_plan_notifier.dart';
+import 'state/job_offer_controller.dart';
+import 'state/plan_controller.dart';
+import 'state/savings_controller.dart';
+import 'state/savings_notifier.dart';
+import 'state/transaction_controller.dart';
+import 'state/transaction_notifier.dart';
+
+import 'widgets/plan_editor.dart';
+
+// ============================================================
+// KONFIGURASI FINPLAN
+// ============================================================
+
+const String kIntroSeenKey = 'finplan.intro_seen.v1';
+
+// ============================================================
+// PROVIDER WELCOME SLIDES
+// ============================================================
+
+final initialIntroSeenProvider = Provider<bool>(
+  (ref) => false,
+);
+
+final introSeenProvider =
+    NotifierProvider<IntroSeenNotifier, bool>(
+  IntroSeenNotifier.new,
+);
+
+// ============================================================
+// INTRO SEEN NOTIFIER
+// ============================================================
+
+class IntroSeenNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    return ref.watch(initialIntroSeenProvider);
+  }
+
+  Future<void> finishIntro() async {
+    if (state) return;
+
+    // Langsung perbarui UI.
+    state = true;
+
+    try {
+      await ref
+          .read(settingsPreferencesProvider)
+          .setBool(kIntroSeenKey, true);
+    } catch (_) {
+      // Intro tetap selesai pada sesi ini meskipun
+      // penyimpanan preferensi gagal.
+    }
+  }
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ==========================================================
+  // SHARED PREFERENCES
+  // ==========================================================
+
+  final preferences = SharedPreferencesAsync();
+
+  // ==========================================================
+  // LOAD FINANCE PLAN
+  // ==========================================================
+
+  final planRepository = PlanRepository();
+
+  final savedPlan = await planRepository.loadPlan();
+
+  // ==========================================================
+  // LOAD THEME PREFERENCE
+  // ==========================================================
+
+  ThemeMode themePreference = ThemeMode.system;
+
+  try {
+    final savedTheme =
+        await planRepository.loadThemePreference();
+
+    themePreference = switch (savedTheme) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  } catch (_) {
+    // Jika preferensi tema tidak ditemukan,
+    // gunakan mode sistem.
+  }
+
+  // ==========================================================
+  // LOAD WELCOME STATUS
+  // ==========================================================
+
+  bool introSeen = false;
+
+  try {
+    introSeen =
+        await preferences.getBool(kIntroSeenKey) ?? false;
+  } catch (_) {
+    // Welcome akan ditampilkan kembali jika
+    // preferensi gagal dibaca.
+  }
+
+  // ==========================================================
+  // LOAD FONT SCALE
+  // ==========================================================
+
+  double fontScale = 1.0;
+
+  try {
+    final savedScale =
+        await preferences.getDouble(kFontScaleKey);
+
+    if (savedScale != null && savedScale.isFinite) {
+      fontScale = savedScale.clamp(1.0, 1.5).toDouble();
+    }
+  } catch (_) {
+    // Ukuran font kembali ke nilai default.
+  }
+
+  // ==========================================================
+  // INITIALIZE CONTROLLERS
+  // ==========================================================
+
+  final planController = PlanController(
+    planRepository,
+    savedPlan,
+    themePreference,
+  );
+
+  final transactionController = TransactionController(
+    TransactionRepository(),
+  );
+
+  final savingsController = SavingsController(
+    SavingsRepository(
+      preferences: preferences,
+    ),
+  );
+
+  final jobOfferController = JobOfferController(
+    JobOfferRepository(
+      preferences: preferences,
+    ),
+  );
+
+  // ==========================================================
+  // RUN APPLICATION
+  // ==========================================================
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        // Status welcome slides.
+        initialIntroSeenProvider.overrideWithValue(
+          introSeen,
+        ),
+
+        // Pengaturan tema dan ukuran font.
+        initialAppSettingsProvider.overrideWithValue(
+          AppSettingsState(
+            themeMode: themePreference,
+            fontScale: fontScale,
+          ),
+        ),
+
+        // Settings.
+        settingsPlanControllerProvider.overrideWithValue(
+          planController,
+        ),
+
+        settingsPreferencesProvider.overrideWithValue(
+          preferences,
+        ),
+
+        // Finance Plan.
+        legacyPlanControllerProvider.overrideWithValue(
+          planController,
+        ),
+
+        // Transactions.
+        legacyTransactionControllerProvider.overrideWithValue(
+          transactionController,
+        ),
+
+        // Savings.
+        legacySavingsControllerProvider.overrideWithValue(
+          savingsController,
+        ),
+      ],
+
+      child: FinPlanApp(
+        planController: planController,
+        transactionController: transactionController,
+        savingsController: savingsController,
+        jobOfferController: jobOfferController,
+      ),
+    ),
+  );
+}
+
+// ============================================================
+// FINPLAN APP
+// ============================================================
+
+class FinPlanApp extends ConsumerStatefulWidget {
+  const FinPlanApp({
+    super.key,
+    required this.planController,
+    required this.transactionController,
+    required this.savingsController,
+    required this.jobOfferController,
+  });
+
+  final PlanController planController;
+  final TransactionController transactionController;
+  final SavingsController savingsController;
+  final JobOfferController jobOfferController;
+
+  @override
+  ConsumerState<FinPlanApp> createState() {
+    return _FinPlanAppState();
+  }
+}
+
+// ============================================================
+// FINPLAN APP STATE
+// ============================================================
+
+class _FinPlanAppState extends ConsumerState<FinPlanApp> {
+  // ==========================================================
+  // BUILD APPLICATION
+  // ==========================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(appSettingsProvider);
+
+    return MaterialApp(
+      title: 'FinPlan',
+      debugShowCheckedModeBanner: false,
+
+      // ======================================================
+      // LIGHT / DARK MODE
+      // ======================================================
+
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: settings.themeMode,
+
+      // ======================================================
+      // FONT SCALING
+      // ======================================================
+
+      builder: (context, child) {
+        final media = MediaQuery.of(context);
+
+        final deviceScale =
+            media.textScaler.scale(16) / 16;
+
+        final effectiveScale =
+            (deviceScale * settings.fontScale)
+                .clamp(1.0, 2.0)
+                .toDouble();
+
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: TextScaler.linear(
+              effectiveScale,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+
+      // ======================================================
+      // INITIAL SCREEN
+      // ======================================================
+
+      home: Consumer(
+        builder: (context, ref, _) {
+          final introSeen = ref.watch(
+            introSeenProvider,
+          );
+
+          final plan = ref.watch(
+            financePlanProvider,
+          );
+
+          // ==================================================
+          // WELCOME SLIDES
+          // ==================================================
+
+          if (!introSeen) {
+            return WelcomeSlidesPage(
+              onContinue: () {
+                unawaited(
+                  ref
+                      .read(introSeenProvider.notifier)
+                      .finishIntro(),
+                );
+              },
+            );
+          }
+
+          // ==================================================
+          // ONBOARDING
+          // ==================================================
+
+          if (plan == null) {
+            return const OnboardingPage();
+          }
+
+          // ==================================================
+          // MAIN FINPLAN
+          // ==================================================
+
+          return FinanceShell(
+            planController: widget.planController,
+            transactionController:
+                widget.transactionController,
+            savingsController: widget.savingsController,
+            jobOfferController: widget.jobOfferController,
+          );
+        },
+      ),
+    );
+  }
+
+  // ==========================================================
+  // DISPOSE
+  // ==========================================================
+
+  @override
+  void dispose() {
+    unawaited(
+      widget.transactionController.closeDatabase(),
+    );
+
+    widget.jobOfferController.dispose();
+    widget.savingsController.dispose();
+    widget.transactionController.dispose();
+    widget.planController.dispose();
+
+    super.dispose();
+  }
+}
+
+// ============================================================
+// ONBOARDING PAGE
+// ============================================================
+
+class OnboardingPage extends ConsumerWidget {
+  const OnboardingPage({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(
+      appSettingsProvider,
+    ).themeMode;
+
+    final isDark = mode == ThemeMode.dark ||
+        (mode == ThemeMode.system &&
+            MediaQuery.platformBrightnessOf(context) ==
+                Brightness.dark);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Mulai dengan FinPlan',
+        ),
+
+        actions: [
+          IconButton(
+            tooltip: isDark
+                ? 'Aktifkan light mode'
+                : 'Aktifkan dark mode',
+
+            onPressed: () async {
+              try {
+                await ref
+                    .read(appSettingsProvider.notifier)
+                    .toggleTheme(
+                      Theme.of(context).brightness,
+                    );
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Gagal mengubah tampilan.',
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+
+            icon: Icon(
+              isDark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+            ),
+          ),
+        ],
+      ),
+
+      body: SafeArea(
+        child: PlanEditor(
+          initial: FinancePlan.defaults(),
+          onboarding: true,
+          onSave: ref
+              .read(financePlanProvider.notifier)
+              .savePlan,
+        ),
+      ),
+    );
+  }
+}

@@ -1,12 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import '../lib/data/transaction_repository.dart';
-import '../lib/models/finance_transaction.dart';
-import '../lib/models/transaction_category.dart';
-import '../lib/services/transaction_csv_export_service.dart';
-import '../lib/services/transaction_csv_import_service.dart';
+import 'package:celeng_id/data/transaction_repository.dart';
+import 'package:celeng_id/models/finance_transaction.dart';
+import 'package:celeng_id/models/transaction_category.dart';
+import 'package:celeng_id/services/transaction_csv_export_service.dart';
+import 'package:celeng_id/services/transaction_csv_import_service.dart';
 
 // ============================================================
 // FINPLAN - CSV EXPORT & BACKUP RESTORE TEST
@@ -63,9 +62,7 @@ void main() {
 
   group('Transaction CSV Export', () {
     test('CSV memiliki BOM UTF-8 dan header yang sesuai', () {
-      final csv = TransactionCsvExportService.buildCsv([
-        _createExpense(),
-      ]);
+      final csv = TransactionCsvExportService.buildCsv([_createExpense()]);
 
       expect(csv.startsWith('\uFEFF'), isTrue);
 
@@ -103,15 +100,10 @@ void main() {
         description: 'Makan "siang", ayam goreng',
       );
 
-      final csv = TransactionCsvExportService.buildCsv([
-        transaction,
-      ]);
+      final csv = TransactionCsvExportService.buildCsv([transaction]);
 
       // Tanda kutip harus digandakan dalam format CSV.
-      expect(
-        csv,
-        contains('"Makan ""siang"", ayam goreng"'),
-      );
+      expect(csv, contains('"Makan ""siang"", ayam goreng"'));
     });
 
     test('Deskripsi dengan baris baru tidak hilang', () {
@@ -119,14 +111,9 @@ void main() {
         description: 'Belanja harian\nBeras dan telur',
       );
 
-      final csv = TransactionCsvExportService.buildCsv([
-        transaction,
-      ]);
+      final csv = TransactionCsvExportService.buildCsv([transaction]);
 
-      expect(
-        csv,
-        contains('"Belanja harian\nBeras dan telur"'),
-      );
+      expect(csv, contains('"Belanja harian\nBeras dan telur"'));
     });
 
     test('Teks yang menyerupai rumus spreadsheet diberi pengaman', () {
@@ -135,9 +122,7 @@ void main() {
         accountName: '@contoh',
       );
 
-      final csv = TransactionCsvExportService.buildCsv([
-        transaction,
-      ]);
+      final csv = TransactionCsvExportService.buildCsv([transaction]);
 
       // Apostrof mencegah teks diawali simbol rumus.
       expect(csv, contains("\"'=2+2\""));
@@ -158,9 +143,7 @@ void main() {
     });
 
     setUp(() async {
-      database = await databaseFactoryFfi.openDatabase(
-        inMemoryDatabasePath,
-      );
+      database = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
 
       await database.execute('''
         CREATE TABLE transactions (
@@ -190,18 +173,13 @@ void main() {
       // 1. Siapkan transaksi asli.
       // ======================================================
 
-      final originalTransactions = [
-        _createExpense(),
-        _createIncome(),
-      ];
+      final originalTransactions = [_createExpense(), _createIncome()];
 
       // ======================================================
       // 2. Export transaksi menjadi CSV.
       // ======================================================
 
-      final csv = TransactionCsvExportService.buildCsv(
-        originalTransactions,
-      );
+      final csv = TransactionCsvExportService.buildCsv(originalTransactions);
 
       expect(csv.isNotEmpty, isTrue);
 
@@ -233,10 +211,7 @@ void main() {
       // 5. Periksa data setelah restore.
       // ======================================================
 
-      final rows = await database.query(
-        'transactions',
-        orderBy: 'id ASC',
-      );
+      final rows = await database.query('transactions', orderBy: 'id ASC');
 
       expect(rows.length, 2);
 
@@ -287,32 +262,27 @@ void main() {
       expect(rows.length, 2);
     });
 
-    test('Deskripsi dengan koma dan baris baru tetap sama setelah restore', () async {
-      const originalDescription =
-          'Belanja, makan siang\nBeras dan telur';
+    test(
+      'Deskripsi dengan koma dan baris baru tetap sama setelah restore',
+      () async {
+        const originalDescription = 'Belanja, makan siang\nBeras dan telur';
 
-      final csv = TransactionCsvExportService.buildCsv([
-        _createExpense(
-          description: originalDescription,
-        ),
-      ]);
+        final csv = TransactionCsvExportService.buildCsv([
+          _createExpense(description: originalDescription),
+        ]);
 
-      final result = await importService.importCsv(csv);
+        final result = await importService.importCsv(csv);
 
-      expect(result.importedRows, 1);
+        expect(result.importedRows, 1);
 
-      final rows = await database.query('transactions');
+        final rows = await database.query('transactions');
 
-      expect(rows.length, 1);
+        expect(rows.length, 1);
 
-      final restoredTransaction = FinanceTransaction.fromMap(
-        rows.first,
-      );
+        final restoredTransaction = FinanceTransaction.fromMap(rows.first);
 
-      expect(
-        restoredTransaction.description,
-        originalDescription,
-      );
-    });
+        expect(restoredTransaction.description, originalDescription);
+      },
+    );
   });
 }

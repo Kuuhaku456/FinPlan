@@ -1,27 +1,20 @@
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../core/money.dart';
 import '../models/job_offer.dart';
-import '../state/job_offer_controller.dart';
+import '../state/job_offer_notifier.dart';
 
-class AddJobOfferPage extends StatefulWidget {
-  const AddJobOfferPage({
-    super.key,
-    required this.controller,
-    this.initialOffer,
-  });
-
-  final JobOfferController controller;
+class AddJobOfferPage extends ConsumerStatefulWidget {
+  const AddJobOfferPage({super.key, this.initialOffer});
   final JobOffer? initialOffer;
 
   @override
-  State<AddJobOfferPage> createState() =>
-      _AddJobOfferPageState();
+  ConsumerState<AddJobOfferPage> createState() => _AddJobOfferPageState();
 }
 
-class _AddJobOfferPageState extends State<AddJobOfferPage> {
+class _AddJobOfferPageState extends ConsumerState<AddJobOfferPage> {
   static const Color darkGreen = Color(0xFF064E3B);
   static const Color green = Color(0xFF10B981);
   static const Color softGreen = Color(0xFFE9F8F0);
@@ -46,8 +39,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   void initState() {
     super.initState();
 
-    _baseOffer = widget.initialOffer ??
-        JobOffer.create(title: '');
+    _baseOffer = widget.initialOffer ?? JobOffer.create(title: '');
 
     _salaryMode = _baseOffer.salaryMode;
     _careerRating = _baseOffer.careerRating;
@@ -92,15 +84,11 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
           ? ''
           : _baseOffer.targetRemaining.toString(),
 
-      'comfortableCommute':
-          _baseOffer.comfortableCommuteMinutes.toString(),
+      'comfortableCommute': _baseOffer.comfortableCommuteMinutes.toString(),
     };
 
     _fields = values.map(
-      (key, value) => MapEntry(
-        key,
-        TextEditingController(text: value),
-      ),
+      (key, value) => MapEntry(key, TextEditingController(text: value)),
     );
   }
 
@@ -126,10 +114,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   }
 
   double _number(String key) {
-    final text = _fields[key]!
-        .text
-        .trim()
-        .replaceAll(',', '.');
+    final text = _fields[key]!.text.trim().replaceAll(',', '.');
 
     final value = double.tryParse(text);
 
@@ -140,10 +125,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     return value;
   }
 
-  int _wholeNumber(
-    String key, {
-    int max = 1000000,
-  }) {
+  int _wholeNumber(String key, {int max = 1000000}) {
     return _number(key).round().clamp(0, max).toInt();
   }
 
@@ -168,14 +150,11 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       otherIncome: _money('otherIncome'),
       deductions: _money('deductions'),
 
-      workDaysPerMonth:
-          _wholeNumber('workDays', max: 31),
+      workDaysPerMonth: _wholeNumber('workDays', max: 31),
 
-      officeDaysPerMonth:
-          _wholeNumber('officeDays', max: 31),
+      officeDaysPerMonth: _wholeNumber('officeDays', max: 31),
 
-      daysPerWeek:
-          _wholeNumber('daysPerWeek', max: 7),
+      daysPerWeek: _wholeNumber('daysPerWeek', max: 7),
 
       hoursPerDay: _number('hoursPerDay'),
 
@@ -193,8 +172,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
       targetRemaining: _money('targetRemaining'),
 
-      comfortableCommuteMinutes:
-          _number('comfortableCommute'),
+      comfortableCommuteMinutes: _number('comfortableCommute'),
 
       careerRating: _careerRating,
       environmentRating: _environmentRating,
@@ -214,8 +192,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       return 'Masukkan gaji lebih dari Rp0.';
     }
 
-    if (_salaryMode != JobSalaryMode.monthly &&
-        _number('paidUnits') <= 0) {
+    if (_salaryMode != JobSalaryMode.monthly && _number('paidUnits') <= 0) {
       return 'Jumlah hari, jam, atau sesi harus lebih dari nol.';
     }
 
@@ -248,7 +225,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
   // =====================================================
 
   Future<void> _save() async {
-    if (_isSubmitting || widget.controller.isSaving) {
+    if (_isSubmitting || ref.read(jobOffersProvider).isSaving) {
       return;
     }
 
@@ -258,12 +235,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            error ?? 'Periksa kembali input pekerjaan.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(error), behavior: SnackBarBehavior.floating),
       );
       return;
     }
@@ -276,8 +248,8 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       final offer = _buildOffer();
 
       final success = _isEditing
-          ? await widget.controller.updateOffer(offer)
-          : await widget.controller.createOffer(offer);
+          ? await ref.read(jobOffersProvider.notifier).updateOffer(offer)
+          : await ref.read(jobOffersProvider.notifier).createOffer(offer);
 
       if (!mounted) return;
 
@@ -289,7 +261,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.controller.errorMessage ??
+            ref.read(jobOffersProvider).errorMessage ??
                 'Gagal menyimpan tawaran pekerjaan.',
           ),
           behavior: SnackBarBehavior.floating,
@@ -300,9 +272,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Terjadi kesalahan saat menyimpan.',
-          ),
+          content: Text('Terjadi kesalahan saat menyimpan.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -338,10 +308,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     );
   }
 
-  Widget _moneyInput(
-    String label,
-    String key,
-  ) {
+  Widget _moneyInput(String label, String key) {
     return _inputWrapper(
       label: label,
       child: TextField(
@@ -350,39 +317,24 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
         keyboardType: TextInputType.number,
         maxLines: 1,
         expands: false,
-        inputFormatters: [
-          FilteringTextInputFormatter.digitsOnly,
-        ],
-        decoration: _inputDecoration(
-          prefix: 'Rp ',
-        ),
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        decoration: _inputDecoration(prefix: 'Rp '),
         onChanged: (_) => setState(() {}),
       ),
     );
   }
 
-  Widget _numberInput(
-    String label,
-    String key, {
-    String? suffix,
-  }) {
+  Widget _numberInput(String label, String key, {String? suffix}) {
     return _inputWrapper(
       label: label,
       child: TextField(
         key: ValueKey('job_offer_field_$key'),
         controller: _fields[key],
-        keyboardType:
-            const TextInputType.numberWithOptions(
-          decimal: true,
-        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [
-          FilteringTextInputFormatter.allow(
-            RegExp(r'[0-9,.]'),
-          ),
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9,.]')),
         ],
-        decoration: _inputDecoration(
-          suffix: suffix,
-        ),
+        decoration: _inputDecoration(suffix: suffix),
         onChanged: (_) => setState(() {}),
       ),
     );
@@ -397,20 +349,14 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(
-        fontSize: 12,
-        color: muted,
-      ),
+      hintStyle: const TextStyle(fontSize: 12, color: muted),
       prefixText: prefix,
       suffixText: suffix,
       filled: true,
       fillColor: scheme.brightness == Brightness.dark
           ? scheme.surfaceContainerHighest
           : const Color(0xFFF6F9F7),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 15,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
@@ -418,19 +364,13 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     );
   }
 
-  Widget _inputWrapper({
-    required String label,
-    required Widget child,
-  }) {
+  Widget _inputWrapper({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         child,
@@ -442,13 +382,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 440) {
-          return Column(
-            children: [
-              first,
-              const SizedBox(height: 13),
-              second,
-            ],
-          );
+          return Column(children: [first, const SizedBox(height: 13), second]);
         }
 
         return Row(
@@ -516,11 +450,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                         color: softGreen,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        icon,
-                        color: darkGreen,
-                        size: 20,
-                      ),
+                      child: Icon(icon, color: darkGreen, size: 20),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -552,8 +482,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                 children: [
                   for (var i = 0; i < children.length; i++) ...[
                     children[i],
-                    if (i < children.length - 1)
-                      const SizedBox(height: 14),
+                    if (i < children.length - 1) const SizedBox(height: 14),
                   ],
                 ],
               ),
@@ -573,10 +502,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       children: [
         const Text(
           'Sistem pembayaran',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
         ),
 
         const SizedBox(height: 9),
@@ -646,10 +572,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 9,
-                vertical: 5,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
               decoration: BoxDecoration(
                 color: softGreen,
                 borderRadius: BorderRadius.circular(9),
@@ -693,10 +616,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF087557),
-            darkGreen,
-          ],
+          colors: [Color(0xFF087557), darkGreen],
         ),
         borderRadius: BorderRadius.circular(24),
       ),
@@ -727,10 +647,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
 
           const Text(
             'Perkiraan uang tersisa',
-            style: TextStyle(
-              color: Color(0xFFC6ECDD),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Color(0xFFC6ECDD), fontSize: 12),
           ),
 
           const SizedBox(height: 5),
@@ -800,8 +717,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
                 value: score / 100,
                 minHeight: 7,
                 backgroundColor: Colors.white24,
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(
+                valueColor: const AlwaysStoppedAnimation<Color>(
                   Color(0xFF98ECC4),
                 ),
               ),
@@ -813,10 +729,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
           Row(
             children: [
               Expanded(
-                child: _previewMetric(
-                  'Gaji bersih',
-                  rupiah(offer.takeHomePay),
-                ),
+                child: _previewMetric('Gaji bersih', rupiah(offer.takeHomePay)),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -858,10 +771,7 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Color(0xFFBCE6D2),
-            fontSize: 10,
-          ),
+          style: const TextStyle(color: Color(0xFFBCE6D2), fontSize: 10),
         ),
 
         const SizedBox(height: 5),
@@ -889,379 +799,271 @@ class _AddJobOfferPageState extends State<AddJobOfferPage> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
 
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final saving =
-            _isSubmitting || widget.controller.isSaving;
+    final saving = _isSubmitting || ref.watch(jobOffersProvider).isSaving;
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
 
-        return Scaffold(
-          backgroundColor:
-              theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          _isEditing ? 'Edit Tawaran' : 'Tawaran Baru',
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+        ),
+        centerTitle: false,
+      ),
 
-          appBar: AppBar(
-            title: Text(
-              _isEditing
-                  ? 'Edit Tawaran'
-                  : 'Tawaran Baru',
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(17, 15, 17, 25),
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: darkGreen,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const Icon(
+                  Icons.work_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
               ),
-            ),
-            centerTitle: false,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isEditing ? 'Perbarui Tawaran' : 'Tambah Pekerjaan',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Isi detail sesuai tawaranmu',
+                      style: TextStyle(color: muted, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
 
-          body: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                17,
-                15,
-                17,
-                25,
+          const SizedBox(height: 20),
+
+          // INFORMASI PEKERJAAN
+          _section(
+            title: 'Informasi pekerjaan',
+            icon: Icons.business_center_rounded,
+            expanded: true,
+            children: [
+              _textInput(
+                'Nama posisi',
+                'title',
+                hint: 'Contoh: Backend Developer',
               ),
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: darkGreen,
-                        borderRadius:
-                            BorderRadius.circular(15),
-                      ),
-                      child: const Icon(
-                        Icons.work_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isEditing
-                                ? 'Perbarui Tawaran'
-                                : 'Tambah Pekerjaan',
-                            style: TextStyle(
-                              color: scheme.onSurface,
-                              fontSize: 19,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Isi detail sesuai tawaranmu',
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+
+              _textInput('Perusahaan', 'company', hint: 'Nama perusahaan'),
+
+              _textInput('Lokasi', 'location', hint: 'Contoh: Jakarta Timur'),
+            ],
+          ),
+
+          // PENGHASILAN
+          _section(
+            title: 'Penghasilan',
+            icon: Icons.payments_rounded,
+            expanded: true,
+            children: [
+              _salaryModeSelector(),
+
+              _moneyInput(
+                _salaryMode == JobSalaryMode.monthly
+                    ? 'Gaji pokok / bulan'
+                    : 'Tarif ${_salaryMode.label.toLowerCase()}',
+                'salaryRate',
+              ),
+
+              if (_salaryMode != JobSalaryMode.monthly)
+                _numberInput('Jumlah dibayar / bulan', 'paidUnits'),
+
+              _pair(
+                _moneyInput('Tunjangan', 'allowances'),
+                _moneyInput('Bonus', 'bonuses'),
+              ),
+
+              _pair(
+                _moneyInput('Lembur', 'overtime'),
+                _moneyInput('Penghasilan lain', 'otherIncome'),
+              ),
+
+              _moneyInput('Potongan gaji', 'deductions'),
+            ],
+          ),
+
+          // JADWAL KERJA
+          _section(
+            title: 'Jadwal kerja',
+            icon: Icons.calendar_month_rounded,
+            children: [
+              _pair(
+                _numberInput('Hari kerja / bulan', 'workDays', suffix: 'hari'),
+                _numberInput(
+                  'Hari ke kantor / bulan',
+                  'officeDays',
+                  suffix: 'hari',
                 ),
+              ),
 
-                const SizedBox(height: 20),
-
-                // INFORMASI PEKERJAAN
-                _section(
-                  title: 'Informasi pekerjaan',
-                  icon: Icons.business_center_rounded,
-                  expanded: true,
-                  children: [
-                    _textInput(
-                      'Nama posisi',
-                      'title',
-                      hint: 'Contoh: Backend Developer',
-                    ),
-
-                    _textInput(
-                      'Perusahaan',
-                      'company',
-                      hint: 'Nama perusahaan',
-                    ),
-
-                    _textInput(
-                      'Lokasi',
-                      'location',
-                      hint: 'Contoh: Jakarta Timur',
-                    ),
-                  ],
+              _pair(
+                _numberInput(
+                  'Hari kerja / minggu',
+                  'daysPerWeek',
+                  suffix: 'hari',
                 ),
+                _numberInput('Jam kerja / hari', 'hoursPerDay', suffix: 'jam'),
+              ),
+            ],
+          ),
 
-                // PENGHASILAN
-                _section(
-                  title: 'Penghasilan',
-                  icon: Icons.payments_rounded,
-                  expanded: true,
-                  children: [
-                    _salaryModeSelector(),
+          // TRANSPORTASI
+          _section(
+            title: 'Transportasi',
+            icon: Icons.directions_transit_rounded,
+            children: [
+              _pair(
+                _moneyInput('Ongkos berangkat', 'goCost'),
+                _moneyInput('Ongkos pulang', 'returnCost'),
+              ),
 
-                    _moneyInput(
-                      _salaryMode == JobSalaryMode.monthly
-                          ? 'Gaji pokok / bulan'
-                          : 'Tarif ${_salaryMode.label.toLowerCase()}',
-                      'salaryRate',
-                    ),
+              _pair(
+                _numberInput('Waktu berangkat', 'goMinutes', suffix: 'menit'),
+                _numberInput('Waktu pulang', 'returnMinutes', suffix: 'menit'),
+              ),
 
-                    if (_salaryMode != JobSalaryMode.monthly)
-                      _numberInput(
-                        'Jumlah dibayar / bulan',
-                        'paidUnits',
-                      ),
+              _pair(
+                _numberInput('Jarak berangkat', 'goDistance', suffix: 'km'),
+                _numberInput('Jarak pulang', 'returnDistance', suffix: 'km'),
+              ),
+            ],
+          ),
 
-                    _pair(
-                      _moneyInput(
-                        'Tunjangan',
-                        'allowances',
-                      ),
-                      _moneyInput(
-                        'Bonus',
-                        'bonuses',
-                      ),
-                    ),
+          // BIAYA TAMBAHAN
+          _section(
+            title: 'Biaya tambahan',
+            icon: Icons.receipt_long_rounded,
+            children: [
+              _moneyInput('Tambahan makan / hari ke kantor', 'extraMealCost'),
 
-                    _pair(
-                      _moneyInput(
-                        'Lembur',
-                        'overtime',
-                      ),
-                      _moneyInput(
-                        'Penghasilan lain',
-                        'otherIncome',
-                      ),
-                    ),
+              _moneyInput('Biaya lainnya / bulan', 'otherWorkCosts'),
+            ],
+          ),
 
-                    _moneyInput(
-                      'Potongan gaji',
-                      'deductions',
-                    ),
-                  ],
-                ),
+          // PREFERENSI PRIBADI
+          _section(
+            title: 'Preferensi pribadi',
+            icon: Icons.favorite_outline_rounded,
+            children: [
+              _moneyInput('Target uang tersisa / bulan', 'targetRemaining'),
 
-                // JADWAL KERJA
-                _section(
-                  title: 'Jadwal kerja',
-                  icon: Icons.calendar_month_rounded,
-                  children: [
-                    _pair(
-                      _numberInput(
-                        'Hari kerja / bulan',
-                        'workDays',
-                        suffix: 'hari',
-                      ),
-                      _numberInput(
-                        'Hari ke kantor / bulan',
-                        'officeDays',
-                        suffix: 'hari',
-                      ),
-                    ),
+              _numberInput(
+                'Batas nyaman perjalanan PP',
+                'comfortableCommute',
+                suffix: 'menit',
+              ),
 
-                    _pair(
-                      _numberInput(
-                        'Hari kerja / minggu',
-                        'daysPerWeek',
-                        suffix: 'hari',
-                      ),
-                      _numberInput(
-                        'Jam kerja / hari',
-                        'hoursPerDay',
-                        suffix: 'jam',
-                      ),
-                    ),
-                  ],
-                ),
+              _ratingSlider(
+                title: 'Prospek karier',
+                value: _careerRating,
+                onChanged: (value) {
+                  setState(() {
+                    _careerRating = value;
+                  });
+                },
+              ),
 
-                // TRANSPORTASI
-                _section(
-                  title: 'Transportasi',
-                  icon: Icons.directions_transit_rounded,
-                  children: [
-                    _pair(
-                      _moneyInput(
-                        'Ongkos berangkat',
-                        'goCost',
-                      ),
-                      _moneyInput(
-                        'Ongkos pulang',
-                        'returnCost',
-                      ),
-                    ),
+              _ratingSlider(
+                title: 'Kenyamanan kerja',
+                value: _environmentRating,
+                onChanged: (value) {
+                  setState(() {
+                    _environmentRating = value;
+                  });
+                },
+              ),
+            ],
+          ),
 
-                    _pair(
-                      _numberInput(
-                        'Waktu berangkat',
-                        'goMinutes',
-                        suffix: 'menit',
-                      ),
-                      _numberInput(
-                        'Waktu pulang',
-                        'returnMinutes',
-                        suffix: 'menit',
-                      ),
-                    ),
+          // CATATAN
+          _section(
+            title: 'Catatan tambahan',
+            icon: Icons.notes_rounded,
+            children: [
+              _textInput(
+                'Catatan',
+                'notes',
+                maxLines: 4,
+                hint: 'Kontrak, benefit, WFH, dan lainnya...',
+              ),
+            ],
+          ),
 
-                    _pair(
-                      _numberInput(
-                        'Jarak berangkat',
-                        'goDistance',
-                        suffix: 'km',
-                      ),
-                      _numberInput(
-                        'Jarak pulang',
-                        'returnDistance',
-                        suffix: 'km',
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(height: 9),
 
-                // BIAYA TAMBAHAN
-                _section(
-                  title: 'Biaya tambahan',
-                  icon: Icons.receipt_long_rounded,
-                  children: [
-                    _moneyInput(
-                      'Tambahan makan / hari ke kantor',
-                      'extraMealCost',
-                    ),
+          // LIVE PREVIEW
+          _buildPreview(),
 
-                    _moneyInput(
-                      'Biaya lainnya / bulan',
-                      'otherWorkCosts',
-                    ),
-                  ],
-                ),
+          const SizedBox(height: 15),
 
-                // PREFERENSI PRIBADI
-                _section(
-                  title: 'Preferensi pribadi',
-                  icon: Icons.favorite_outline_rounded,
-                  children: [
-                    _moneyInput(
-                      'Target uang tersisa / bulan',
-                      'targetRemaining',
-                    ),
+          const Text(
+            'Hasil merupakan simulasi. '
+            'Pastikan nominal gaji, potongan, '
+            'dan benefit sesuai tawaran sebenarnya.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: muted, fontSize: 11, height: 1.5),
+          ),
 
-                    _numberInput(
-                      'Batas nyaman perjalanan PP',
-                      'comfortableCommute',
-                      suffix: 'menit',
-                    ),
+          const SizedBox(height: 16),
+        ],
+      ),
 
-                    _ratingSlider(
-                      title: 'Prospek karier',
-                      value: _careerRating,
-                      onChanged: (value) {
-                        setState(() {
-                          _careerRating = value;
-                        });
-                      },
-                    ),
-
-                    _ratingSlider(
-                      title: 'Kenyamanan kerja',
-                      value: _environmentRating,
-                      onChanged: (value) {
-                        setState(() {
-                          _environmentRating = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-
-                // CATATAN
-                _section(
-                  title: 'Catatan tambahan',
-                  icon: Icons.notes_rounded,
-                  children: [
-                    _textInput(
-                      'Catatan',
-                      'notes',
-                      maxLines: 4,
-                      hint:
-                          'Kontrak, benefit, WFH, dan lainnya...',
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 9),
-
-                // LIVE PREVIEW
-                _buildPreview(),
-
-                const SizedBox(height: 15),
-
-                const Text(
-                  'Hasil merupakan simulasi. '
-                  'Pastikan nominal gaji, potongan, '
-                  'dan benefit sesuai tawaran sebenarnya.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 11,
-                    height: 1.5,
+      // TOMBOL SIMPAN
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(17, 8, 17, 16),
+        child: FilledButton.icon(
+          onPressed: saving ? null : _save,
+          style: FilledButton.styleFrom(
+            backgroundColor: darkGreen,
+            minimumSize: const Size.fromHeight(56),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(17),
+            ),
+          ),
+          icon: saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
                   ),
-                ),
-
-                const SizedBox(height: 16),
-              ],
+                )
+              : const Icon(Icons.check_circle_outline_rounded),
+          label: Text(
+            saving
+                ? 'Menyimpan...'
+                : _isEditing
+                ? 'Simpan Perubahan'
+                : 'Simpan Tawaran',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
           ),
-
-          // TOMBOL SIMPAN
-          bottomNavigationBar: SafeArea(
-            top: false,
-            minimum: const EdgeInsets.fromLTRB(
-              17,
-              8,
-              17,
-              16,
-            ),
-            child: FilledButton.icon(
-              onPressed: saving ? null : _save,
-              style: FilledButton.styleFrom(
-                backgroundColor: darkGreen,
-                minimumSize: const Size.fromHeight(56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(17),
-                ),
-              ),
-              icon: saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.check_circle_outline_rounded,
-                    ),
-              label: Text(
-                saving
-                    ? 'Menyimpan...'
-                    : _isEditing
-                        ? 'Simpan Perubahan'
-                        : 'Simpan Tawaran',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
-
-
-

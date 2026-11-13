@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/money.dart';
 import '../models/finance_transaction.dart';
 import '../models/transaction_category.dart';
-import '../state/transaction_controller.dart';
 import '../state/transaction_notifier.dart';
 
 // ==========================================
@@ -70,13 +69,11 @@ class AddTransactionPage
     extends ConsumerStatefulWidget {
   const AddTransactionPage({
     super.key,
-    required this.controller,
     this.transaction,
   });
 
   // Dipertahankan untuk kompatibilitas
   // dengan halaman Transaksi sebelumnya.
-  final TransactionController controller;
 
   final FinanceTransaction? transaction;
 

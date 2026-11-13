@@ -1,11 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-import '../lib/data/transaction_repository.dart';
-import '../lib/models/finance_transaction.dart';
-import '../lib/models/transaction_category.dart';
-import '../lib/services/transaction_csv_import_service.dart';
+import 'package:celeng_id/data/transaction_repository.dart';
+import 'package:celeng_id/models/finance_transaction.dart';
+import 'package:celeng_id/models/transaction_category.dart';
+import 'package:celeng_id/services/transaction_csv_import_service.dart';
 
 // ======================================================
 // FINPLAN - TRANSACTION CSV IMPORT SERVICE TEST
@@ -65,10 +64,7 @@ String _expenseRow({
 }
 
 // Contoh transaksi pemasukan.
-String _incomeRow({
-  int id = 2,
-  String description = 'Gaji bulanan',
-}) {
+String _incomeRow({int id = 2, String description = 'Gaji bulanan'}) {
   return '$id,'
       '2026-11-07,'
       'Pemasukan,'
@@ -96,9 +92,7 @@ void main() {
   });
 
   setUp(() async {
-    database = await databaseFactoryFfi.openDatabase(
-      inMemoryDatabasePath,
-    );
+    database = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
 
     await database.execute('''
       CREATE TABLE transactions (
@@ -124,10 +118,7 @@ void main() {
   });
 
   Future<List<FinanceTransaction>> readTransactions() async {
-    final rows = await database.query(
-      'transactions',
-      orderBy: 'id ASC',
-    );
+    final rows = await database.query('transactions', orderBy: 'id ASC');
 
     return rows.map(FinanceTransaction.fromMap).toList();
   }
@@ -137,10 +128,7 @@ void main() {
   // ====================================================
 
   test('Berhasil import transaksi pemasukan dan pengeluaran', () async {
-    final csv = _buildCsv([
-      _expenseRow(),
-      _incomeRow(),
-    ]);
+    final csv = _buildCsv([_expenseRow(), _incomeRow()]);
 
     final result = await importService.importCsv(csv);
 
@@ -184,10 +172,7 @@ void main() {
   // ====================================================
 
   test('Import file yang sama dua kali tidak menggandakan transaksi', () async {
-    final csv = _buildCsv([
-      _expenseRow(),
-      _incomeRow(),
-    ]);
+    final csv = _buildCsv([_expenseRow(), _incomeRow()]);
 
     final firstResult = await importService.importCsv(csv);
 
@@ -209,16 +194,11 @@ void main() {
   // ====================================================
 
   test('Preview menghitung transaksi baru dan duplikat', () async {
-    final existingCsv = _buildCsv([
-      _expenseRow(),
-    ]);
+    final existingCsv = _buildCsv([_expenseRow()]);
 
     await importService.importCsv(existingCsv);
 
-    final newCsv = _buildCsv([
-      _expenseRow(),
-      _incomeRow(),
-    ]);
+    final newCsv = _buildCsv([_expenseRow(), _incomeRow()]);
 
     final preview = await importService.previewCsv(newCsv);
 
@@ -302,14 +282,9 @@ void main() {
   test('Membaca deskripsi yang mengandung koma dan baris baru', () async {
     const description = 'Makan, minum\nbelanja mingguan';
 
-    final escapedDescription =
-        '"${description.replaceAll('"', '""')}"';
+    final escapedDescription = '"${description.replaceAll('"', '""')}"';
 
-    final csv = _buildCsv([
-      _expenseRow(
-        description: escapedDescription,
-      ),
-    ]);
+    final csv = _buildCsv([_expenseRow(description: escapedDescription)]);
 
     final result = await importService.importCsv(csv);
 
@@ -329,10 +304,7 @@ void main() {
     final transactionRow = _expenseRow();
 
     // Dua transaksi identik memang ada pada file sumber.
-    final csv = _buildCsv([
-      transactionRow,
-      transactionRow,
-    ]);
+    final csv = _buildCsv([transactionRow, transactionRow]);
 
     final firstResult = await importService.importCsv(csv);
 

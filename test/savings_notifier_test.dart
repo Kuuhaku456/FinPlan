@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/data/savings_repository.dart';
-import '../lib/models/savings_goal.dart';
-import '../lib/state/savings_controller.dart';
-import '../lib/state/savings_notifier.dart';
+import 'package:celeng_id/data/savings_repository.dart';
+import 'package:celeng_id/models/savings_goal.dart';
+import 'package:celeng_id/state/savings_controller.dart';
+import 'package:celeng_id/state/savings_notifier.dart';
 
 // ============================================================
 // FAKE REPOSITORY
@@ -25,9 +25,7 @@ class _MemorySavingsRepository extends SavingsRepository {
     final goal = _goals[goalId];
 
     if (goal == null) {
-      throw StateError(
-        'Kantong tabungan tidak ditemukan.',
-      );
+      throw StateError('Kantong tabungan tidak ditemukan.');
     }
 
     return goal;
@@ -38,16 +36,12 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<List<SavingsGoal>> getAllGoals({
-    bool includeArchived = true,
-  }) async {
+  Future<List<SavingsGoal>> getAllGoals({bool includeArchived = true}) async {
     final goals = _goals.values.where((goal) {
       return includeArchived || !goal.isArchived;
     }).toList();
 
-    goals.sort(
-      (a, b) => b.updatedAt.compareTo(a.updatedAt),
-    );
+    goals.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     return List<SavingsGoal>.unmodifiable(goals);
   }
@@ -57,13 +51,9 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<SavingsGoal> createGoal(
-    SavingsGoal goal,
-  ) async {
+  Future<SavingsGoal> createGoal(SavingsGoal goal) async {
     if (_goals.containsKey(goal.id)) {
-      throw StateError(
-        'Kantong dengan ID tersebut sudah ada.',
-      );
+      throw StateError('Kantong dengan ID tersebut sudah ada.');
     }
 
     _goals[goal.id] = goal;
@@ -76,9 +66,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<SavingsGoal> saveGoal(
-    SavingsGoal goal,
-  ) async {
+  Future<SavingsGoal> saveGoal(SavingsGoal goal) async {
     if (!_goals.containsKey(goal.id)) {
       return createGoal(goal);
     }
@@ -91,9 +79,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<SavingsGoal> updateGoal(
-    SavingsGoal editedGoal,
-  ) async {
+  Future<SavingsGoal> updateGoal(SavingsGoal editedGoal) async {
     final existing = _requireGoal(editedGoal.id);
 
     // Saldo, status arsip, dan riwayat lama dipertahankan.
@@ -124,11 +110,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   }) async {
     final existing = _requireGoal(goalId);
 
-    final updated = existing.addSavings(
-      amount,
-      note: note,
-      date: date,
-    );
+    final updated = existing.addSavings(amount, note: note, date: date);
 
     _goals[goalId] = updated;
 
@@ -148,11 +130,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   }) async {
     final existing = _requireGoal(goalId);
 
-    final updated = existing.withdrawSavings(
-      amount,
-      note: note,
-      date: date,
-    );
+    final updated = existing.withdrawSavings(amount, note: note, date: date);
 
     _goals[goalId] = updated;
 
@@ -164,9 +142,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<SavingsGoal> archiveGoal(
-    String goalId,
-  ) async {
+  Future<SavingsGoal> archiveGoal(String goalId) async {
     final existing = _requireGoal(goalId);
 
     final archived = existing.archive();
@@ -181,9 +157,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<SavingsGoal> restoreGoal(
-    String goalId,
-  ) async {
+  Future<SavingsGoal> restoreGoal(String goalId) async {
     final existing = _requireGoal(goalId);
 
     final restored = existing.restore();
@@ -198,9 +172,7 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<bool> deleteGoal(
-    String goalId,
-  ) async {
+  Future<bool> deleteGoal(String goalId) async {
     return _goals.remove(goalId) != null;
   }
 
@@ -209,22 +181,14 @@ class _MemorySavingsRepository extends SavingsRepository {
   // ==========================================================
 
   @override
-  Future<List<SavingsMovement>> getMovementHistory(
-    String goalId,
-  ) async {
+  Future<List<SavingsMovement>> getMovementHistory(String goalId) async {
     final goal = _requireGoal(goalId);
 
-    final movements = <SavingsMovement>[
-      ...goal.movements,
-    ];
+    final movements = <SavingsMovement>[...goal.movements];
 
-    movements.sort(
-      (a, b) => b.date.compareTo(a.date),
-    );
+    movements.sort((a, b) => b.date.compareTo(a.date));
 
-    return List<SavingsMovement>.unmodifiable(
-      movements,
-    );
+    return List<SavingsMovement>.unmodifiable(movements);
   }
 }
 
@@ -242,9 +206,7 @@ class _SavingsTestHarness {
 
     container = ProviderContainer(
       overrides: [
-        legacySavingsControllerProvider.overrideWithValue(
-          controller,
-        ),
+        legacySavingsControllerProvider.overrideWithValue(controller),
       ],
     );
 
@@ -252,23 +214,18 @@ class _SavingsTestHarness {
     container.read(savingsStateProvider);
   }
 
-  final _MemorySavingsRepository repository =
-      _MemorySavingsRepository();
+  final _MemorySavingsRepository repository = _MemorySavingsRepository();
 
   late final SavingsController controller;
 
   late final ProviderContainer container;
 
   SavingsNotifier get notifier {
-    return container.read(
-      savingsStateProvider.notifier,
-    );
+    return container.read(savingsStateProvider.notifier);
   }
 
   SavingsViewState get state {
-    return container.read(
-      savingsStateProvider,
-    );
+    return container.read(savingsStateProvider);
   }
 
   void dispose() {
@@ -281,7 +238,7 @@ class _SavingsTestHarness {
 // HELPER MEMBUAT TEST HARNESS
 // ============================================================
 
-_SavingsTestHarness createHarness() {
+_SavingsTestHarness _createHarness() {
   final harness = _SavingsTestHarness();
 
   addTearDown(harness.dispose);
@@ -318,7 +275,7 @@ void main() {
     // ========================================================
 
     test('state awal kosong dan loadGoals berhasil', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
       expect(harness.state.allGoals, isEmpty);
       expect(harness.state.activeGoals, isEmpty);
@@ -338,7 +295,7 @@ void main() {
     // ========================================================
 
     test('berhasil membuat kantong tabungan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
       final goal = createTestGoal(
         name: 'Dana Pernikahan',
@@ -352,10 +309,7 @@ void main() {
       expect(state.activeGoals, hasLength(1));
       expect(state.allGoals, hasLength(1));
 
-      expect(
-        state.activeGoals.first.name,
-        'Dana Pernikahan',
-      );
+      expect(state.activeGoals.first.name, 'Dana Pernikahan');
 
       expect(state.totalSaved, 0);
       expect(state.totalTarget, 10000000);
@@ -363,10 +317,7 @@ void main() {
       expect(state.summary.activeGoals, 1);
       expect(state.summary.archivedGoals, 0);
 
-      expect(
-        harness.notifier.goalById(goal.id)?.id,
-        goal.id,
-      );
+      expect(harness.notifier.goalById(goal.id)?.id, goal.id);
     });
 
     // ========================================================
@@ -374,7 +325,7 @@ void main() {
     // ========================================================
 
     test('saldo awal ikut dihitung dalam ringkasan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
       final goal = createTestGoal(
         name: 'Dana Darurat',
@@ -401,7 +352,7 @@ void main() {
     // ========================================================
 
     test('berhasil menambahkan uang tabungan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
       final goal = createTestGoal();
 
@@ -414,9 +365,7 @@ void main() {
         date: DateTime(2026, 11, 1),
       );
 
-      final updatedGoal = harness.notifier.goalById(
-        goal.id,
-      );
+      final updatedGoal = harness.notifier.goalById(goal.id);
 
       expect(updatedGoal, isNotNull);
       expect(updatedGoal!.savedAmount, 500000);
@@ -426,15 +375,9 @@ void main() {
 
       expect(updatedGoal.movements, hasLength(1));
 
-      expect(
-        updatedGoal.movements.first.type,
-        SavingsMovementType.deposit,
-      );
+      expect(updatedGoal.movements.first.type, SavingsMovementType.deposit);
 
-      expect(
-        updatedGoal.movements.first.note,
-        'Setoran dari gaji',
-      );
+      expect(updatedGoal.movements.first.note, 'Setoran dari gaji');
     });
 
     // ========================================================
@@ -442,11 +385,9 @@ void main() {
     // ========================================================
 
     test('berhasil mengambil uang tabungan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
-      final goal = createTestGoal(
-        initialAmount: 1000000,
-      );
+      final goal = createTestGoal(initialAmount: 1000000);
 
       await harness.notifier.createGoal(goal);
 
@@ -457,9 +398,7 @@ void main() {
         date: DateTime(2026, 11, 2),
       );
 
-      final updatedGoal = harness.notifier.goalById(
-        goal.id,
-      );
+      final updatedGoal = harness.notifier.goalById(goal.id);
 
       expect(updatedGoal, isNotNull);
       expect(updatedGoal!.savedAmount, 700000);
@@ -468,147 +407,109 @@ void main() {
 
       expect(updatedGoal.movements, hasLength(1));
 
-      expect(
-        updatedGoal.movements.first.type,
-        SavingsMovementType.withdrawal,
-      );
+      expect(updatedGoal.movements.first.type, SavingsMovementType.withdrawal);
 
-      expect(
-        updatedGoal.movements.first.amount,
-        300000,
-      );
+      expect(updatedGoal.movements.first.amount, 300000);
     });
 
     // ========================================================
     // TEST 6: TOLAK SALDO TIDAK CUKUP
     // ========================================================
 
-    test(
-      'menolak pengambilan yang melebihi saldo',
-      () async {
-        final harness = createHarness();
+    test('menolak pengambilan yang melebihi saldo', () async {
+      final harness = _createHarness();
 
-        final goal = createTestGoal(
-          initialAmount: 100000,
-        );
+      final goal = createTestGoal(initialAmount: 100000);
 
-        await harness.notifier.createGoal(goal);
+      await harness.notifier.createGoal(goal);
 
-        await expectLater(
-          harness.notifier.withdrawSavings(
-            goal.id,
-            200000,
-          ),
-          throwsA(isA<StateError>()),
-        );
+      await expectLater(
+        harness.notifier.withdrawSavings(goal.id, 200000),
+        throwsA(isA<StateError>()),
+      );
 
-        final savedGoal = harness.notifier.goalById(
-          goal.id,
-        );
+      final savedGoal = harness.notifier.goalById(goal.id);
 
-        // Tidak boleh ada perubahan saldo.
-        expect(savedGoal!.savedAmount, 100000);
+      // Tidak boleh ada perubahan saldo.
+      expect(savedGoal!.savedAmount, 100000);
 
-        // Tidak boleh membuat riwayat penarikan gagal.
-        expect(savedGoal.movements, isEmpty);
+      // Tidak boleh membuat riwayat penarikan gagal.
+      expect(savedGoal.movements, isEmpty);
 
-        expect(
-          harness.state.error,
-          contains('melebihi saldo'),
-        );
+      expect(harness.state.error, contains('melebihi saldo'));
 
-        harness.notifier.clearError();
+      harness.notifier.clearError();
 
-        expect(harness.state.error, isNull);
-      },
-    );
+      expect(harness.state.error, isNull);
+    });
 
     // ========================================================
     // TEST 7: EDIT INFORMASI KANTONG
     // ========================================================
 
-    test(
-      'edit kantong mempertahankan saldo dan riwayat',
-      () async {
-        final harness = createHarness();
+    test('edit kantong mempertahankan saldo dan riwayat', () async {
+      final harness = _createHarness();
 
-        final goal = createTestGoal(
-          initialAmount: 500000,
-        );
+      final goal = createTestGoal(initialAmount: 500000);
 
-        await harness.notifier.createGoal(goal);
+      await harness.notifier.createGoal(goal);
 
-        await harness.notifier.addSavings(
-          goal.id,
-          250000,
-          note: 'Bonus pekerjaan',
-        );
+      await harness.notifier.addSavings(
+        goal.id,
+        250000,
+        note: 'Bonus pekerjaan',
+      );
 
-        final editedGoal = goal.copyWith(
-          name: 'Tabungan Menikah',
-          description: 'Target persiapan pernikahan.',
-          targetAmount: 15000000,
-          emoji: '❤️',
-          // Nilai berikut sengaja berbeda untuk menguji
-          // bahwa operasi edit tidak mengganti saldo.
-          savedAmount: 0,
-          movements: const [],
-        );
+      final editedGoal = goal.copyWith(
+        name: 'Tabungan Menikah',
+        description: 'Target persiapan pernikahan.',
+        targetAmount: 15000000,
+        emoji: '❤️',
+        // Nilai berikut sengaja berbeda untuk menguji
+        // bahwa operasi edit tidak mengganti saldo.
+        savedAmount: 0,
+        movements: const [],
+      );
 
-        await harness.notifier.updateGoal(
-          editedGoal,
-        );
+      await harness.notifier.updateGoal(editedGoal);
 
-        final updated = harness.notifier.goalById(
-          goal.id,
-        );
+      final updated = harness.notifier.goalById(goal.id);
 
-        expect(updated, isNotNull);
+      expect(updated, isNotNull);
 
-        expect(updated!.name, 'Tabungan Menikah');
-        expect(updated.targetAmount, 15000000);
-        expect(updated.emoji, '❤️');
+      expect(updated!.name, 'Tabungan Menikah');
+      expect(updated.targetAmount, 15000000);
+      expect(updated.emoji, '❤️');
 
-        // Saldo lama tetap tersedia.
-        expect(updated.savedAmount, 750000);
+      // Saldo lama tetap tersedia.
+      expect(updated.savedAmount, 750000);
 
-        // Riwayat tidak hilang.
-        expect(updated.movements, hasLength(1));
+      // Riwayat tidak hilang.
+      expect(updated.movements, hasLength(1));
 
-        expect(
-          updated.movements.first.note,
-          'Bonus pekerjaan',
-        );
+      expect(updated.movements.first.note, 'Bonus pekerjaan');
 
-        expect(harness.state.totalSaved, 750000);
-        expect(harness.state.totalTarget, 15000000);
-      },
-    );
+      expect(harness.state.totalSaved, 750000);
+      expect(harness.state.totalTarget, 15000000);
+    });
 
     // ========================================================
     // TEST 8: ARSIP KANTONG
     // ========================================================
 
     test('kantong dapat diarsipkan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
-      final goal = createTestGoal(
-        initialAmount: 1000000,
-      );
+      final goal = createTestGoal(initialAmount: 1000000);
 
       await harness.notifier.createGoal(goal);
 
-      await harness.notifier.archiveGoal(
-        goal.id,
-      );
+      await harness.notifier.archiveGoal(goal.id);
 
       expect(harness.state.activeGoals, isEmpty);
       expect(harness.state.archivedGoals, hasLength(1));
 
-      expect(
-        harness.notifier.goalById(goal.id)?.isArchived,
-        isTrue,
-      );
+      expect(harness.notifier.goalById(goal.id)?.isArchived, isTrue);
 
       // Kantong arsip tidak masuk total aktif.
       expect(harness.state.totalSaved, 0);
@@ -618,10 +519,7 @@ void main() {
 
       // Tidak boleh menabung pada kantong arsip.
       await expectLater(
-        harness.notifier.addSavings(
-          goal.id,
-          100000,
-        ),
+        harness.notifier.addSavings(goal.id, 100000),
         throwsA(isA<StateError>()),
       );
     });
@@ -631,11 +529,9 @@ void main() {
     // ========================================================
 
     test('kantong arsip bisa dipulihkan', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
-      final goal = createTestGoal(
-        initialAmount: 2000000,
-      );
+      final goal = createTestGoal(initialAmount: 2000000);
 
       await harness.notifier.createGoal(goal);
 
@@ -648,10 +544,7 @@ void main() {
       expect(harness.state.activeGoals, hasLength(1));
       expect(harness.state.archivedGoals, isEmpty);
 
-      expect(
-        harness.notifier.goalById(goal.id)?.isArchived,
-        isFalse,
-      );
+      expect(harness.notifier.goalById(goal.id)?.isArchived, isFalse);
 
       // Saldo tetap utuh setelah restore.
       expect(harness.state.totalSaved, 2000000);
@@ -664,19 +557,15 @@ void main() {
     // ========================================================
 
     test('berhasil menghapus kantong', () async {
-      final harness = createHarness();
+      final harness = _createHarness();
 
-      final goal = createTestGoal(
-        initialAmount: 500000,
-      );
+      final goal = createTestGoal(initialAmount: 500000);
 
       await harness.notifier.createGoal(goal);
 
       expect(harness.state.allGoals, hasLength(1));
 
-      final deleted = await harness.notifier.deleteGoal(
-        goal.id,
-      );
+      final deleted = await harness.notifier.deleteGoal(goal.id);
 
       expect(deleted, isTrue);
 
@@ -689,8 +578,7 @@ void main() {
       expect(harness.notifier.goalById(goal.id), isNull);
 
       // Menghapus ID yang sudah tidak ada mengembalikan false.
-      final deletedAgain =
-          await harness.notifier.deleteGoal(goal.id);
+      final deletedAgain = await harness.notifier.deleteGoal(goal.id);
 
       expect(deletedAgain, isFalse);
     });
@@ -699,141 +587,120 @@ void main() {
     // TEST 11: RIWAYAT TRANSAKSI TABUNGAN
     // ========================================================
 
-    test(
-      'riwayat tabungan diurutkan dari terbaru',
-      () async {
-        final harness = createHarness();
+    test('riwayat tabungan diurutkan dari terbaru', () async {
+      final harness = _createHarness();
 
-        final goal = createTestGoal();
+      final goal = createTestGoal();
 
-        await harness.notifier.createGoal(goal);
+      await harness.notifier.createGoal(goal);
 
-        await harness.notifier.addSavings(
-          goal.id,
-          500000,
-          note: 'Setoran pertama',
-          date: DateTime(2026, 11, 1),
-        );
+      await harness.notifier.addSavings(
+        goal.id,
+        500000,
+        note: 'Setoran pertama',
+        date: DateTime(2026, 11, 1),
+      );
 
-        await harness.notifier.addSavings(
-          goal.id,
-          300000,
-          note: 'Setoran kedua',
-          date: DateTime(2026, 11, 2),
-        );
+      await harness.notifier.addSavings(
+        goal.id,
+        300000,
+        note: 'Setoran kedua',
+        date: DateTime(2026, 11, 2),
+      );
 
-        await harness.notifier.withdrawSavings(
-          goal.id,
-          100000,
-          note: 'Pengambilan',
-          date: DateTime(2026, 11, 3),
-        );
+      await harness.notifier.withdrawSavings(
+        goal.id,
+        100000,
+        note: 'Pengambilan',
+        date: DateTime(2026, 11, 3),
+      );
 
-        final history =
-            await harness.notifier.loadMovementHistory(
-          goal.id,
-        );
+      final history = await harness.notifier.loadMovementHistory(goal.id);
 
-        expect(history, hasLength(3));
+      expect(history, hasLength(3));
 
-        // Riwayat terbaru ditampilkan dahulu.
-        expect(history[0].note, 'Pengambilan');
-        expect(history[1].note, 'Setoran kedua');
-        expect(history[2].note, 'Setoran pertama');
+      // Riwayat terbaru ditampilkan dahulu.
+      expect(history[0].note, 'Pengambilan');
+      expect(history[1].note, 'Setoran kedua');
+      expect(history[2].note, 'Setoran pertama');
 
-        expect(
-          history[0].type,
-          SavingsMovementType.withdrawal,
-        );
+      expect(history[0].type, SavingsMovementType.withdrawal);
 
-        expect(
-          history[1].type,
-          SavingsMovementType.deposit,
-        );
+      expect(history[1].type, SavingsMovementType.deposit);
 
-        expect(history[0].signedAmount, -100000);
-        expect(history[1].signedAmount, 300000);
+      expect(history[0].signedAmount, -100000);
+      expect(history[1].signedAmount, 300000);
 
-        // Cache riwayat notifier juga diperbarui.
-        final cachedHistory =
-            harness.notifier.historyForGoal(
-          goal.id,
-        );
+      // Cache riwayat notifier juga diperbarui.
+      final cachedHistory = harness.notifier.historyForGoal(goal.id);
 
-        expect(cachedHistory, hasLength(3));
-        expect(cachedHistory.first.note, 'Pengambilan');
+      expect(cachedHistory, hasLength(3));
+      expect(cachedHistory.first.note, 'Pengambilan');
 
-        // Perhitungan saldo akhir.
-        expect(harness.state.totalSaved, 700000);
-      },
-    );
+      // Perhitungan saldo akhir.
+      expect(harness.state.totalSaved, 700000);
+    });
 
     // ========================================================
     // TEST 12: BEBERAPA KANTONG
     // ========================================================
 
-    test(
-      'ringkasan menghitung seluruh kantong aktif',
-      () async {
-        final harness = createHarness();
+    test('ringkasan menghitung seluruh kantong aktif', () async {
+      final harness = _createHarness();
 
-        final wedding = createTestGoal(
-          name: 'Pernikahan',
-          targetAmount: 10000000,
-          initialAmount: 3000000,
-        );
+      final wedding = createTestGoal(
+        name: 'Pernikahan',
+        targetAmount: 10000000,
+        initialAmount: 3000000,
+      );
 
-        final emergency = createTestGoal(
-          name: 'Dana Darurat',
-          targetAmount: 5000000,
-          initialAmount: 2000000,
-        );
+      final emergency = createTestGoal(
+        name: 'Dana Darurat',
+        targetAmount: 5000000,
+        initialAmount: 2000000,
+      );
 
-        await harness.notifier.createGoal(wedding);
-        await harness.notifier.createGoal(emergency);
+      await harness.notifier.createGoal(wedding);
+      await harness.notifier.createGoal(emergency);
 
-        expect(harness.state.activeGoals, hasLength(2));
+      expect(harness.state.activeGoals, hasLength(2));
 
-        expect(harness.state.totalSaved, 5000000);
-        expect(harness.state.totalTarget, 15000000);
-        expect(harness.state.remainingTarget, 10000000);
+      expect(harness.state.totalSaved, 5000000);
+      expect(harness.state.totalTarget, 15000000);
+      expect(harness.state.remainingTarget, 10000000);
 
-        expect(harness.state.summary.activeGoals, 2);
-        expect(harness.state.summary.completedGoals, 0);
+      expect(harness.state.summary.activeGoals, 2);
+      expect(harness.state.summary.completedGoals, 0);
 
-        await harness.notifier.archiveGoal(emergency.id);
+      await harness.notifier.archiveGoal(emergency.id);
 
-        // Ringkasan hanya menghitung kantong aktif.
-        expect(harness.state.totalSaved, 3000000);
-        expect(harness.state.totalTarget, 10000000);
+      // Ringkasan hanya menghitung kantong aktif.
+      expect(harness.state.totalSaved, 3000000);
+      expect(harness.state.totalTarget, 10000000);
 
-        expect(harness.state.summary.activeGoals, 1);
-        expect(harness.state.summary.archivedGoals, 1);
-      },
-    );
+      expect(harness.state.summary.activeGoals, 1);
+      expect(harness.state.summary.archivedGoals, 1);
+    });
 
     // ========================================================
     // TEST 13: PROVIDER TERPISAH
     // ========================================================
 
-    test(
-      'dua sesi pengujian tidak berbagi data',
-      () async {
-        final first = createHarness();
-        final second = createHarness();
+    test('dua sesi pengujian tidak berbagi data', () async {
+      final first = _createHarness();
+      final second = _createHarness();
 
-        final goal = createTestGoal();
+      final goal = createTestGoal();
 
-        await first.notifier.createGoal(goal);
+      await first.notifier.createGoal(goal);
 
-        await second.notifier.loadGoals();
+      await second.notifier.loadGoals();
 
-        expect(first.state.activeGoals, hasLength(1));
+      expect(first.state.activeGoals, hasLength(1));
 
-        expect(second.state.activeGoals, isEmpty);
+      expect(second.state.activeGoals, isEmpty);
 
-        expect(second.state.totalSaved, 0);
-      },
-    );
+      expect(second.state.totalSaved, 0);
+    });
   });
 }

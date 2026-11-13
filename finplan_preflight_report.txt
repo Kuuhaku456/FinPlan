@@ -1,0 +1,110 @@
+===========================================
+FINPLAN - PRE-RELEASE AUDIT
+===========================================
+Tanggal: 2026-11-12 16:58:29.980301
+
+[OK] Struktur utama FinPlan
+Seluruh file dasar ditemukan.
+
+[OK] Tawaran Kerja
+jobOffersProvider ditemukan.
+
+[OK] Transaksi V2
+transactionV2Provider ditemukan.
+
+[OK] Transaksi UI Bridge
+transactionStateProvider ditemukan.
+
+[OK] Kantong Tabungan V2
+savingsV2Provider ditemukan.
+
+[OK] Kantong Tabungan UI Bridge
+savingsStateProvider ditemukan.
+
+[OK] Finance Plan V2
+financePlanV2Provider ditemukan.
+
+[OK] Finance Plan UI Bridge
+financePlanProvider ditemukan.
+
+[OK] Settings
+appSettingsProvider ditemukan.
+
+[OK] Feature flag FINPLAN_TX_V2
+Flag tersedia.
+
+[OK] Feature flag FINPLAN_SAVINGS_V2
+Flag tersedia.
+
+[OK] Feature flag FINPLAN_PLAN_V2
+Flag tersedia.
+
+[OK] Feature flag FINPLAN_SETTINGS_V2
+Flag tersedia.
+
+[REVIEW] Penggunaan controller pada UI
+12 referensi masih ditemukan.
+Controller lama belum aman dihapus.
+
+[REVIEW] Unit test Riverpod V2
+5/6 file test ditemukan.
+Belum ada:
+test/transaction_v2_bridge_test.dart
+
+[OK] Versi aplikasi
+Package: celeng_id
+Version: 1.0.0+2
+
+[OK] Dependency Riverpod
+flutter_riverpod tersedia di pubspec.yaml.
+
+[REVIEW] Application ID
+Masih ditemukan com.example.
+Periksa applicationId sebelum rilis.
+
+[REVIEW] Release signing
+Ditemukan referensi debug signing.
+Periksa apakah dipakai oleh build release.
+
+[OK] Android target SDK
+Konfigurasi targetSdk ditemukan. Nilainya tetap perlu diperiksa.
+
+[REVIEW] Git signing exclusions
+Pastikan file signing tidak masuk Git.
+Pola belum ditemukan:
+*.jks
+*.keystore
+key.properties
+
+[REVIEW] Backup migrasi
+5 backup ditemukan.
+Jangan commit backup tersebut ke Git.
+
+
+===========================================
+LEGACY CONTROLLER REFERENCES
+===========================================
+lib/screens\add_savings_goal_page.dart:139 [SavingsController]
+lib/screens\add_transaction_page.dart:79 [TransactionController]
+lib/screens\savings_detail_page.dart:107 [SavingsController]
+lib/screens\savings_page.dart:71 [SavingsController]
+lib/screens\transactions_page.dart:22 [TransactionController]
+lib/features\dashboard\presentation\finance_shell.dart:49 [PlanController]
+lib/features\dashboard\presentation\finance_shell.dart:50 [TransactionController]
+lib/features\dashboard\presentation\finance_shell.dart:51 [SavingsController]
+lib/features\settings\presentation\settings_page.dart:34 [PlanController]
+lib/features\settings\providers\app_settings_provider.dart:107 [PlanController]
+lib/features\settings\providers\app_settings_provider.dart:108 [PlanController]
+lib/features\settings\providers\app_settings_provider.dart:169 [PlanController]
+
+===========================================
+RECOMMENDED NEXT STEPS
+===========================================
+1. Perbaiki flutter analyze.
+2. Jalankan seluruh flutter test.
+3. Verifikasi integrasi provider V2.
+4. Hapus controller lama hanya jika
+   seluruh referensinya sudah tidak ada.
+5. Verifikasi Android signing.
+6. Uji seluruh fitur di HP.
+7. Bangun Android App Bundle (AAB).
